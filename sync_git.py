@@ -1,46 +1,44 @@
 import os
 import subprocess
+from datetime import datetime
 
-# Configuration par défaut
-GITHUB_USER = "jeffersonk74"
-REPO_NAME = "surgery"
-
-def run_command(command):
+def check_internet():
+    # On essaie de contacter le DNS de Google (8.8.8.8) très rapidement
     try:
-        # On utilise env pour s'assurer que Git utilise bien le helper de stockage
-        subprocess.run(command, shell=True, check=True, text=True)
+        subprocess.run(["ping", "-c", "1", "-W", "2", "8.8.8.8"], capture_output=True, check=True)
         return True
-    except subprocess.CalledProcessError:
+    except:
         return False
 
+def run_cmd(cmd):
+    return subprocess.run(cmd, shell=True, capture_output=True, text=True)
+
 def sync():
-    print(f"🚀 Synchronisation de {REPO_NAME} pour {GITHUB_USER}...")
-
-    # Configuration automatique du stockage des identifiants (à faire une seule fois)
-    os.system("git config --global credential.helper store")
-
-    # 1. Préparation des fichiers
-    if not run_command("git add ."): 
-        print("❌ Erreur lors du 'git add'")
-        return
-
-    # 2. Commit avec message personnalisé ou par défaut
-    msg = input("📝 Message de commit (Entrée pour auto) : ").strip()
-    if not msg:
-        msg = "Mise à jour automatique - Projet ORCHIDEE"
-    
-    # On commit. Si rien n'a changé, Git renvoie une erreur légère, on continue.
-    run_command(f'git commit -m "{msg}"')
-
-    # 3. Push vers GitHub
-    print("\n🌐 Connexion à GitHub en cours...")
-    print(f"💡 Si demandé, colle ton Token PAT (ton mot de passe habituel ne marchera pas).")
-    
-    if run_command("git push origin main"):
-        print("\n✅ Succès ! Tout est synchronisé en ligne.")
+    # 1. Enregistrement local (marche toujours)
+    status = run_cmd("git status --porcelain")
+    if status.stdout.strip():
+        now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        run_cmd("git add .")
+        run_cmd(f'git commit -m "Auto-sync: {now}"')
+        print(f"💾 Sauvegarde locale effectuée à {now}.")
     else:
-        print("\n⚠️ Push impossible. Tes changements sont enregistrés localement sur ton PC.")
-        print("💾 Ils seront envoyés automatiquement au prochain succès internet.")
+        print("✨ Aucun nouveau changement local.")
+
+    # 2. Vérification Internet avant le Push
+    print("🔍 Vérification de la connexion...")
+    if check_internet():
+        print("🌐 Internet OK. Envoi vers GitHub...")
+        # On s'assure que Git se souvienne de la clé après le premier succès
+        run_cmd("git config --global credential.helper store")
+        
+        push = subprocess.run("git push origin main", shell=True) # On laisse l'output normal pour voir le prompt
+        if push.returncode == 0:
+            print("✅ Synchronisation en ligne terminée !")
+        else:
+            print("❌ Le push a échoué (vérifie tes accès ou le blocage de secret).")
+    else:
+        print("📴 Tu es hors-ligne. Les changements restent sur ton PC pour l'instant.")
+        print("🚀 Relance le script quand tu auras retrouvé la connexion.")
 
 if __name__ == "__main__":
     sync()
