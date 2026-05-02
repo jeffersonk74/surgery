@@ -30,13 +30,33 @@ app.use((req, res, next) => {
   next();
 });
 
-// Route de santé (healthcheck)
-app.get('/health', (req, res) => {
-  res.status(200).json({ 
-    status: 'ok', 
+// Route de santé (healthcheck) enrichi
+app.get('/health', async (req, res) => {
+  const health = {
+    status: 'ok',
+    timestamp: new Date().toISOString(),
+    uptime: process.uptime(),
+    nodeVersion: process.version,
     database: 'connected',
-    message: 'Serveur prêt pour la 5G' 
-  });
+    arduinoConnected: systemState?.arduino?.connected || false,
+    activePatients: 0,
+    message: 'Serveur prêt pour la 5G'
+  };
+
+  // Prisma count en try/catch pour ne pas casser le healthcheck
+  try {
+    const [patientCount, userCount] = await Promise.all([
+      prisma.patient.count({ where: { statut: 'en_cours' } }),
+      prisma.user.count()
+    ]);
+    health.activePatients = patientCount;
+    health.totalUsers = userCount;
+  } catch (err) {
+    console.warn('[HEALTH] Erreur Prisma count:', err.message);
+    health.prismaError = err.message;
+  }
+
+  res.status(200).json(health);
 });
 
 // Route API pour obtenir le statut système complet (Arduino, assistants, chirurgiens) - Protégée par JWT
@@ -158,9 +178,16 @@ async function startServer() {
     
     // Récupération de l'état de session pour synchronisation
     const sessionState = await recoverSessionState();
-    
+
     // Stocker l'état récupéré dans une variable globale pour les sockets
     global.recoveredSession = sessionState;
+
+    // Persistance: si un patient est en 'en_cours', réactiver l'état opération
+    if (sessionState?.activePatient) {
+      systemState.operation.active = true;
+      systemState.operation.patientId = sessionState.activePatient.id;
+      console.log(`[SERVER] Opération réactivée - Patient ${sessionState.activePatient.id} en cours`);
+    }
     
     server.listen(PORT, '0.0.0.0', () => {
       console.log(`=====================================\n`);
