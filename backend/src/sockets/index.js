@@ -368,13 +368,20 @@ class SessionMetricsCollector {
 
     calculateStats() {
         if (this.latencyReadings.length === 0) {
-            return { avg: 0, min: 0, max: 0, stability: 100 };
+            return { avg: 0, min: 0, max: 0, median: 0, stability: 100 };
         }
 
         const values = this.latencyReadings.map(r => r.value);
         const avg = values.reduce((a, b) => a + b, 0) / values.length;
         const min = Math.min(...values);
         const max = Math.max(...values);
+
+        // Calcul de la médiane
+        const sorted = [...values].sort((a, b) => a - b);
+        const mid = Math.floor(sorted.length / 2);
+        const median = sorted.length % 2 === 0
+            ? (sorted[mid - 1] + sorted[mid]) / 2
+            : sorted[mid];
 
         // Stabilité = pourcentage de paquets reçus avec latence < 50ms
         const stablePackets = values.filter(v => v < 50).length;
@@ -384,6 +391,7 @@ class SessionMetricsCollector {
             avg: Math.round(avg),
             min: Math.round(min),
             max: Math.round(max),
+            median: Math.round(median),
             stability: Math.round(stability * 10) / 10
         };
     }
