@@ -82,6 +82,7 @@ let lastDataVersion = 0;
 
 // État système (source unique de vérité)
 let arduinoConnected = false;
+let arduinoSimulation = false;  // ← Mode simulation actif
 let assistantReady = false;
 let assistantOnline = false;
 let patientConsent = false;
@@ -97,6 +98,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   // Restaurer l'état depuis localStorage (anti‑refresh)
   arduinoConnected = localStorage.getItem('arduino_connected') === 'true';
+  arduinoSimulation = localStorage.getItem('arduino_simulation') === 'true';
   assistantReady   = localStorage.getItem('assistant_ready') === 'true';
   patientConsent   = localStorage.getItem('patient_consent') === 'true';
 
@@ -208,8 +210,20 @@ function initSocket() {
 
   socket.on('arduino:status', (data) => {
     arduinoConnected = data.connected;
+    arduinoSimulation = data.simulationMode || false;
     localStorage.setItem('arduino_connected', arduinoConnected);
+    localStorage.setItem('arduino_simulation', arduinoSimulation);
     updateMonitoringUI();
+  });
+
+  // Handler pour le mode simulation (avertissement)
+  socket.on('arduino:simulation-mode', (data) => {
+    if (data.active) {
+      arduinoSimulation = true;
+      localStorage.setItem('arduino_simulation', 'true');
+      NotificationQueue.add(`⚠️ Mode simulation: ${data.reason}`, 'warning');
+      updateMonitoringUI();
+    }
   });
 
   socket.on('assistant:ready', (data) => {
@@ -310,7 +324,9 @@ function initSocket() {
   socket.on('system:status', (data) => {
     if (data.arduino !== undefined) {
       arduinoConnected = data.arduino.connected ?? data.arduino;
+      arduinoSimulation = data.arduino.simulationMode || false;
       localStorage.setItem('arduino_connected', arduinoConnected);
+      localStorage.setItem('arduino_simulation', arduinoSimulation);
     }
     if (data.assistants) {
       assistantReady = data.assistants.ready > 0;
@@ -441,13 +457,27 @@ function updateMonitoringUI() {
   const consentDot  = document.getElementById('consentStatusDot');
   const consentText = document.getElementById('consentStatusText');
 
-  // Arduino
+  // Arduino (gère aussi le mode simulation)
   if (arduinoDot) {
-    arduinoDot.className = arduinoConnected ? 'status-indicator online' : 'status-indicator offline';
+    if (arduinoConnected && !arduinoSimulation) {
+      arduinoDot.className = 'status-indicator online';
+    } else if (arduinoSimulation) {
+      arduinoDot.className = 'status-indicator unknown';  // Orange pour simulation
+    } else {
+      arduinoDot.className = 'status-indicator offline';
+    }
   }
   if (arduinoText) {
-    arduinoText.textContent = arduinoConnected ? 'Connecté' : 'Déconnecté';
-    arduinoText.style.color = arduinoConnected ? 'var(--emerald-600)' : 'var(--rose-500)';
+    if (arduinoConnected && !arduinoSimulation) {
+      arduinoText.textContent = 'Connecté';
+      arduinoText.style.color = 'var(--emerald-600)';
+    } else if (arduinoSimulation) {
+      arduinoText.textContent = 'SIMULATION';
+      arduinoText.style.color = 'var(--amber-500)';  // Orange
+    } else {
+      arduinoText.textContent = 'Déconnecté';
+      arduinoText.style.color = 'var(--rose-500)';
+    }
   }
 
   // Assistant

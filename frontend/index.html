@@ -131,6 +131,24 @@
                     </div>
                 </div>
 
+                <!-- Dead Man's Switch - Sécurité Moteurs -->
+                <div class="border border-rose-800 bg-rose-950/30 p-3 rounded-none">
+                    <div class="mb-2 text-[10px] font-semibold uppercase tracking-widest text-rose-400">
+                        Sécurité Moteurs
+                    </div>
+                    <button
+                        id="deadman-btn"
+                        class="w-full border-2 border-rose-600 bg-rose-900/50 py-4 text-[11px] font-bold uppercase tracking-widest text-rose-200 select-none rounded-none"
+                        style="cursor: pointer;"
+                    >
+                        <i data-lucide="hand" class="h-5 w-5 mx-auto mb-1"></i>
+                        MAINTENIR POUR ACTIVER MOTEURS
+                    </button>
+                    <div class="mt-2 text-[9px] text-rose-400 text-center">
+                        Relâcher = arrêt immédiat
+                    </div>
+                </div>
+
                 <div class="border border-slate-800 bg-slate-950 p-3 rounded-none">
                     <div class="mb-2 text-[10px] font-semibold uppercase tracking-widest text-slate-400">Telemetry Monitors</div>
 
@@ -439,6 +457,20 @@
     </div>
 
     <script>
+        // Variable de sécurité Dead Man's Switch
+        let isDeadmanPressed = false;
+
+        // Fonction wrapper pour envoyer les commandes robot (avec vérification Dead Man's Switch)
+        function sendMoveCommand(data) {
+            if (!isDeadmanPressed) {
+                console.warn('[DEADMAN] Commande bloquée - bouton de sécurité non maintenu');
+                return;
+            }
+            if (!state.socket?.connected) return;
+            if (!state.operationStarted) return;
+            state.socket.emit('move-command', data);
+        }
+
         const state = {
             socket: null,
             roomEntered: false,
@@ -472,6 +504,50 @@
         const videoOverlayText = document.getElementById('videoOverlayText');
         const cameraStateLabel = document.getElementById('cameraStateLabel');
         const localVideo = document.getElementById('localVideo');
+
+        // Initialisation du Dead Man's Switch (sécurité moteurs)
+        const deadmanBtn = document.getElementById('deadman-btn');
+        if (deadmanBtn) {
+            deadmanBtn.addEventListener('mousedown', () => {
+                isDeadmanPressed = true;
+                deadmanBtn.style.background = 'rgba(16, 185, 129, 0.3)';
+                deadmanBtn.style.borderColor = '#10b981';
+                deadmanBtn.style.color = '#6ee7b7';
+            });
+
+            const releaseDeadman = () => {
+                if (!isDeadmanPressed) return;
+                isDeadmanPressed = false;
+                deadmanBtn.style.background = '';
+                deadmanBtn.style.borderColor = '';
+                deadmanBtn.style.color = '';
+
+                // Envoyer arrêt d'urgence au robot
+                if (state.socket?.connected) {
+                    state.socket.emit('emergency-stop', {
+                        latency: 0,
+                        reason: 'deadman_released',
+                        timestamp: Date.now()
+                    });
+                }
+                if (window.arduinoController?.sendEmergency) {
+                    window.arduinoController.sendEmergency();
+                }
+            };
+
+            deadmanBtn.addEventListener('mouseup', releaseDeadman);
+            deadmanBtn.addEventListener('mouseleave', releaseDeadman);
+
+            // Support tactile pour tablette
+            deadmanBtn.addEventListener('touchstart', (e) => {
+                e.preventDefault();
+                isDeadmanPressed = true;
+                deadmanBtn.style.background = 'rgba(16, 185, 129, 0.3)';
+                deadmanBtn.style.borderColor = '#10b981';
+            }, { passive: false });
+
+            deadmanBtn.addEventListener('touchend', releaseDeadman);
+        }
 
         function getOperationStorageKey(patientId) {
             return `operation_started_${patientId}`;
@@ -739,6 +815,31 @@
                 if (assistantStatusEl) {
                     assistantStatusEl.textContent = 'Offline';
                     assistantStatusEl.style.color = '#f43f5e';
+                }
+            });
+
+            // Mode simulation - bannière d'avertissement persistante
+            state.socket.on('arduino:simulation-mode', (data) => {
+                if (data.active) {
+                    // Vérifier si la bannière existe déjà
+                    if (!document.getElementById('simulation-banner')) {
+                        const banner = document.createElement('div');
+                        banner.id = 'simulation-banner';
+                        banner.style.cssText = `
+                            position: fixed;
+                            top: 0; left: 0; right: 0;
+                            background: #f59e0b;
+                            color: black;
+                            text-align: center;
+                            padding: 8px;
+                            font-weight: 700;
+                            font-size: 0.85rem;
+                            z-index: 9999;
+                            letter-spacing: 1px;
+                        `;
+                        banner.textContent = '⚠️ MODE SIMULATION — Arduino non connecté — Les commandes robot ne sont PAS exécutées';
+                        document.body.prepend(banner);
+                    }
                 }
             });
 

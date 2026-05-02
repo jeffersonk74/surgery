@@ -5,7 +5,7 @@ import express from 'express';
 import prisma from '../config/prisma.js';
 import { verifyToken } from './auth.js';
 import crypto from 'crypto';
-import { systemState } from '../sockets/index.js';
+import { systemState, operationCommandLogs } from '../sockets/index.js';
 
 const router = express.Router();
 
@@ -281,39 +281,22 @@ router.get('/download-logs/:patientId', async (req, res) => {
     const pathologieBase = pathologieMatch ? pathologieMatch[1].trim() : patient.pathologie;
     const typeOperation = pathologieMatch ? pathologieMatch[2].trim() : 'Non spécifié';
     
-    // Générer des hashs SHA-256 fictifs simulant les commandes Arduino
-    const commandHashes = [];
-    const numCommands = Math.floor(Math.random() * 20) + 5; // Entre 5 et 25 commandes
-    
-    for (let i = 0; i < numCommands; i++) {
-      const commandData = {
-        patientId: patient.patientId,
-        commandIndex: i + 1,
-        timestamp: new Date(Date.now() - (numCommands - i) * 60000).toISOString(),
-        coordinates: {
-          x: Math.round(Math.sin(i) * 45),
-          y: Math.round(Math.cos(i) * 30),
-          z: Math.round(Math.sin(i * 0.5) * 20)
-        },
-        action: i % 3 === 0 ? 'MOVE' : (i % 3 === 1 ? 'GRIP' : 'RELEASE')
-      };
-      
-      commandHashes.push({
-        sequence: i + 1,
-        timestamp: commandData.timestamp,
-        hash: generateHash(commandData),
-        action: commandData.action,
-        coordinates: commandData.coordinates
-      });
-    }
-    
-    // Construire le fichier JSON de la "Boîte Noire Chirurgicale"
+    // Récupérer les vrais logs de commandes depuis le store en mémoire
+    const realLogs = operationCommandLogs.get(patientId) || [];
+    const commandHashes = realLogs.length > 0
+      ? realLogs
+      : [{ sequence: 1, timestamp: new Date().toISOString(),
+           hash: generateHash({ patientId, note: 'Aucune commande enregistrée' }),
+           action: 'NO_DATA', coordinates: {} }];
+
+    // Construire le fichier JSON de la "Boîte Noire Chirurgicale" avec données réelles
     const blackBoxData = {
       surgicalBlackBox: {
         version: '1.0.0',
         generatedAt: new Date().toISOString(),
         integrity: 'SHA-256',
-        totalCommands: numCommands
+        totalCommands: realLogs.length,
+        dataSource: realLogs.length > 0 ? 'REAL_TIME_CAPTURE' : 'NO_DATA'
       },
       patient: {
         id: patient.patientId,

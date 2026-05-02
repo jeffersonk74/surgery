@@ -153,7 +153,20 @@
                         </span>
                     </div>
                 </div>
-                <div class="grid grid-cols-2 gap-4 h-[calc(100%-2rem)]">
+                <div class="grid grid-cols-3 gap-4 h-[calc(100%-2rem)]">
+                    <!-- Flux vidéo du chirurgien (WebRTC) -->
+                    <div class="border border-slate-800 bg-slate-900/50 p-2 rounded-none relative">
+                        <div class="text-[10px] text-slate-500 mb-2">Flux Chirurgien</div>
+                        <video id="surgeon-video"
+                            autoplay playsinline
+                            class="w-full h-full object-cover bg-slate-900"
+                            style="min-height: 120px;">
+                        </video>
+                        <div id="video-placeholder"
+                            class="absolute inset-0 flex items-center justify-center text-slate-600 text-[10px] uppercase tracking-widest">
+                            En attente du flux...
+                        </div>
+                    </div>
                     <div class="border border-slate-800 bg-slate-900/50 p-3 rounded-none">
                         <div class="text-[10px] text-slate-500 mb-2">Latence réseau (ms)</div>
                         <canvas id="latency-chart" class="w-full h-[calc(100%-1.5rem)]"></canvas>
@@ -192,15 +205,63 @@
     </div>
 
     <script>
+        // Configuration backend (corrige les URLs relatives)
+        function getBackendHost() {
+            const stored = localStorage.getItem('medibot_backend_host');
+            if (stored) return stored;
+            return window.location.hostname === 'localhost' ? 'localhost:3000' : window.location.hostname + ':3000';
+        }
+        const BACKEND_HOST = getBackendHost();
+        const API_URL = `http://${BACKEND_HOST}/api`;
+
         const state = {
             socket: null,
             connected: false,
             surgeonInRoom: false,
             patientId: null,
+            surgeonSocketId: null,  // ← WebRTC: ID du chirurgien pour la signalisation
             latencyHistory: [],
             servoHistory: [],
             maxDataPoints: 50
         };
+
+        // WebRTC Configuration
+        const iceServers = {
+            iceServers: [
+                { urls: 'stun:stun.l.google.com:19302' },
+                { urls: 'stun:stun1.l.google.com:19302' }
+            ]
+        };
+        let peerConnection = null;
+        const surgeonVideo = document.getElementById('surgeon-video');
+        const videoPlaceholder = document.getElementById('video-placeholder');
+
+        function initWebRTC() {
+            peerConnection = new RTCPeerConnection(iceServers);
+
+            peerConnection.ontrack = (event) => {
+                if (surgeonVideo && event.streams[0]) {
+                    surgeonVideo.srcObject = event.streams[0];
+                    if (videoPlaceholder) videoPlaceholder.style.display = 'none';
+                }
+            };
+
+            peerConnection.onicecandidate = (event) => {
+                if (event.candidate && state.socket) {
+                    state.socket.emit('ice-candidate', {
+                        targetId: state.surgeonSocketId,
+                        candidate: event.candidate
+                    });
+                }
+            };
+
+            peerConnection.oniceconnectionstatechange = () => {
+                if (peerConnection.iceConnectionState === 'disconnected' ||
+                    peerConnection.iceConnectionState === 'failed') {
+                    if (videoPlaceholder) videoPlaceholder.style.display = 'flex';
+                }
+            };
+        }
 
         // Initialize
         document.addEventListener('DOMContentLoaded', () => {
@@ -235,6 +296,40 @@
             state.socket.on('connect', () => {
                 state.connected = true;
                 updateConnectionStatus('connected');
+
+                // Rejoindre la room pour WebRTC
+                state.socket.emit('join-room', 'Bloc-01', (response) => {
+                    if (response?.peers?.length > 0) {
+                        state.surgeonSocketId = response.peers[0];
+                    }
+                });
+            });
+
+            // WebRTC: Recevoir l'offer du chirurgien
+            state.socket.on('offer', async (data) => {
+                if (!peerConnection) initWebRTC();
+                await peerConnection.setRemoteDescription(data.offer);
+                const answer = await peerConnection.createAnswer();
+                await peerConnection.setLocalDescription(answer);
+                state.socket.emit('answer', { targetId: data.senderId, answer });
+                state.surgeonSocketId = data.senderId;
+            });
+
+            // WebRTC: Recevoir la réponse du chirurgien
+            state.socket.on('answer', async (data) => {
+                if (peerConnection) await peerConnection.setRemoteDescription(data.answer);
+            });
+
+            // WebRTC: Recevoir les candidats ICE
+            state.socket.on('ice-candidate', async (data) => {
+                try {
+                    if (peerConnection) await peerConnection.addIceCandidate(data.candidate);
+                } catch (e) { console.error('[WebRTC] ICE error:', e); }
+            });
+
+            // WebRTC: Un pair a rejoint la room
+            state.socket.on('peer-joined', (data) => {
+                state.surgeonSocketId = data.peerId;
             });
 
             state.socket.on('disconnect', () => {
@@ -434,9 +529,9 @@
         }
 
         function updatePatientInfo(patientId) {
-            // Fetch patient details
-            fetch(`/api/patients/${patientId}`, {
-                headers: { 'Authorization': `Bearer ${sessionStorage.getItem('token')}` }
+            // Fetch patient details avec URL complète
+            fetch(`${API_URL}/patients/${patientId}`, {
+                headers: { 'Authorization': 'Bearer ' + sessionStorage.getItem('token') }
             })
             .then(r => r.json())
             .then(data => {

@@ -26,6 +26,12 @@ let serialBuffer = '';  // Buffer pour assembler les lignes série
 let lastDataReceived = 0;  // Timestamp dernière donnée reçue
 let zombieCheckInterval = null;  // Timer pour détection port zombie
 
+// Positions actuelles des servos (mises à jour par les messages POS de l'Arduino)
+let currentPositions = {
+    base: null, epaule: null, coude: null,
+    poignet: null, inc: null, pince: null
+};
+
 // Récupérer l'instance io
 export function setArduinoIo(io) {
   ioInstance = io;
@@ -94,7 +100,7 @@ function handleDisconnect() {
   }
 
   if (ioInstance) {
-    updateArduinoStatus(ioInstance, false, null, simulationMode);
+    updateArduinoStatus(ioInstance, false, null, simulationMode, currentPositions);
   }
 }
 
@@ -242,6 +248,42 @@ function handleSerialLine(line) {
     return;
   }
 
+  // Positions des servos : POS base epaule coude poignet inc pince
+  if (line.startsWith('POS ')) {
+    try {
+      const parts = line.split(' ').filter(p => p !== '');
+      if (parts.length >= 7) {
+        currentPositions.base = parseInt(parts[1], 10);
+        currentPositions.epaule = parseInt(parts[2], 10);
+        currentPositions.coude = parseInt(parts[3], 10);
+        currentPositions.poignet = parseInt(parts[4], 10);
+        currentPositions.inc = parseInt(parts[5], 10);
+        currentPositions.pince = parseInt(parts[6], 10);
+
+        logger.debug('[ARDUINO] Positions servos mises à jour:', currentPositions);
+
+        // Émettre les positions avec le statut Arduino
+        if (ioInstance) {
+          ioInstance.emit('servo:position', {
+            base: currentPositions.base,
+            epaule: currentPositions.epaule,
+            coude: currentPositions.coude,
+            poignet: currentPositions.poignet,
+            inc: currentPositions.inc,
+            pince: currentPositions.pince,
+            timestamp: new Date().toISOString()
+          });
+
+          // Mettre à jour le statut avec les positions
+          updateArduinoStatus(ioInstance, true, ARDUINO_PORT, simulationMode, currentPositions);
+        }
+      }
+    } catch (e) {
+      logger.warn('[ARDUINO] Erreur parsing positions:', { error: e.message, line });
+    }
+    return;
+  }
+
   // Ligne non reconnue - log en debug
   logger.debug('[ARDUINO] Ligne non traitée:', { line });
 }
@@ -257,7 +299,17 @@ function stopSimulationMode() {
 // Mode simulation - émet des données périodiques
 function startSimulationMode() {
   if (simulationInterval) return;
-  
+
+  // Émettre un événement pour avertir tous les clients
+  if (ioInstance) {
+    ioInstance.emit('arduino:simulation-mode', {
+      active: true,
+      reason: 'Port série indisponible - Aucun Arduino détecté',
+      port: ARDUINO_PORT,
+      timestamp: new Date().toISOString()
+    });
+  }
+
   simulationInterval = setInterval(() => {
     if (!isConnected && ioInstance) {
       // Émettre données position simulées
@@ -272,6 +324,15 @@ function startSimulationMode() {
         timestamp: new Date().toISOString(),
         simulation: true
       });
+
+      // Mettre à jour le statut avec positions simulées
+      const simulatedPositions = {
+        base: simulatedPos.x || 0,
+        epaule: simulatedPos.y || 0,
+        coude: simulatedPos.z || 0,
+        poignet: 0, inc: 0, pince: 0
+      };
+      updateArduinoStatus(ioInstance, false, null, true, simulatedPositions);
     }
   }, 5000);
 }

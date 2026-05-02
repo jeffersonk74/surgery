@@ -19,6 +19,12 @@ let heartbeatTimer = null;
 let commandQueue = [];
 let responseCallbacks = new Map();
 
+// Positions actuelles des servos (mises à jour par les messages de télémétrie)
+let currentPositions = {
+    base: null, epaule: null, coude: null,
+    poignet: null, inc: null, pince: null
+};
+
 // Récupérer l'instance io
 export function setAndroidIo(io) {
   ioInstance = io;
@@ -41,10 +47,10 @@ async function connectToAndroid() {
     ws.on('open', () => {
       logger.info('[ANDROID_BRIDGE] ✅ Connecté au bridge Android');
       isConnected = true;
-      
-      // Envoyer le statut à tous les clients
+
+      // Envoyer le statut à tous les clients avec les positions actuelles
       if (ioInstance) {
-        updateArduinoStatus(ioInstance, true, `${ANDROID_WS_HOST}:${ANDROID_WS_PORT}`, false);
+        updateArduinoStatus(ioInstance, true, `${ANDROID_WS_HOST}:${ANDROID_WS_PORT}`, false, currentPositions);
       }
       
       // Vider la file d'attente
@@ -63,18 +69,28 @@ async function connectToAndroid() {
     ws.on('error', (err) => {
       logger.error('[ANDROID_BRIDGE] ❌ Erreur WebSocket:', err.message);
       isConnected = false;
-      
+
+      // Émettre un événement simulation mode quand la connexion échoue
       if (ioInstance) {
-        updateArduinoStatus(ioInstance, false, null, false);
+        ioInstance.emit('arduino:simulation-mode', {
+          active: true,
+          reason: 'Connexion WebSocket Android indisponible',
+          host: ANDROID_WS_HOST,
+          port: ANDROID_WS_PORT,
+          timestamp: new Date().toISOString()
+        });
+        updateArduinoStatus(ioInstance, false, null, false, currentPositions);
       }
     });
 
     ws.on('close', () => {
       logger.warn('[ANDROID_BRIDGE] 🔌 Connexion fermée');
       isConnected = false;
-      
+      // Reset positions quand déconnecté
+      currentPositions = { base: null, epaule: null, coude: null, poignet: null, inc: null, pince: null };
+
       if (ioInstance) {
-        updateArduinoStatus(ioInstance, false, null, false);
+        updateArduinoStatus(ioInstance, false, null, false, currentPositions);
       }
       
       // Relancer la reconnexion
@@ -91,6 +107,14 @@ async function connectToAndroid() {
 // Gère les messages reçus de l'Android
 function handleAndroidMessage(msg) {
   const { type, data, timestamp } = msg;
+
+  // Si les données brutes contiennent [POS], parser immédiatement
+  if (typeof data === 'string' && data.includes('[POS]')) {
+    const parsed = parseTelemetry(data);
+    if (parsed.x !== undefined) currentPositions.base = parsed.x;
+    if (parsed.y !== undefined) currentPositions.epaule = parsed.y;
+    if (parsed.z !== undefined) currentPositions.coude = parsed.z;
+  }
 
   switch (type) {
     case 'ack':
@@ -115,15 +139,22 @@ function handleAndroidMessage(msg) {
       // Statut du robot
       logger.info('[ANDROID_BRIDGE] 📊 Statut robot:', data);
       if (ioInstance) {
-        updateArduinoStatus(ioInstance, data.robot_connected, null, false);
+        updateArduinoStatus(ioInstance, data.robot_connected, null, false, currentPositions);
       }
       break;
 
     case 'telemetry':
       // Télémétrie du robot
       logger.debug('[ANDROID_BRIDGE] 📡 Télémétrie:', data);
+      const parsed = parseTelemetry(data);
+
+      // Extraire et stocker les positions si présentes
+      if (parsed.x !== undefined) currentPositions.base = parsed.x;
+      if (parsed.y !== undefined) currentPositions.epaule = parsed.y;
+      if (parsed.z !== undefined) currentPositions.coude = parsed.z;
+
       if (ioInstance) {
-        ioInstance.emit('robot:telemetry', parseTelemetry(data));
+        ioInstance.emit('robot:telemetry', parsed);
       }
       break;
 

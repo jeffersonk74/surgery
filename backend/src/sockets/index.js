@@ -11,6 +11,11 @@ let sendToRobot;
 let initArduino = null;
 
 // ============================================================================
+// STORE DE LOGS COMMANDES - Surgical Black Box (données réelles)
+// ============================================================================
+const operationCommandLogs = new Map(); // patientId -> [{sequence, timestamp, hash, action, coords}]
+
+// ============================================================================
 // SYSTÈME DE ROBUSTESSE
 // ============================================================================
 
@@ -490,6 +495,12 @@ const sessionMetrics = new SessionMetricsCollector();
 const systemState = {
   dataVersion: () => dataVersion,
   incrementVersion: incrementDataVersion,
+  arduino: {
+    connected: false,
+    port: null,
+    simulationMode: false,
+    positions: null  // ← Positions des servos
+  },
   assistant: {
     online: false,
     ready: false,
@@ -668,6 +679,29 @@ async function setupSockets(io) {
           ack: ackResponse
         }, Date.now());
 
+        // STOCKER LA COMMANDE DANS LES LOGS RÉELS (Surgical Black Box)
+        const patientId = systemState.operation.patientId;
+        if (patientId) {
+          if (!operationCommandLogs.has(patientId)) {
+            operationCommandLogs.set(patientId, []);
+          }
+          const logs = operationCommandLogs.get(patientId);
+          logs.push({
+            sequence: logs.length + 1,
+            timestamp: new Date().toISOString(),
+            hash: blockHash,
+            action: 'MOVE',
+            coordinates: {
+              x: Math.round(data.x),
+              y: Math.round(data.y),
+              z: Math.round(data.z),
+              roll: Math.round(data.roll || 0),
+              pitch: Math.round(data.pitch || 0),
+              yaw: Math.round(data.yaw || 0)
+            }
+          });
+        }
+
         // TRACKER LE BLOC BLOCKCHAIN DANS LES MÉTRIQUES
         if (systemState.operation.active) {
           sessionMetrics.recordBlockchainBlock(blockHash);
@@ -797,7 +831,8 @@ async function setupSockets(io) {
       socket.emit('arduino:status', {
         connected: systemState.arduino.connected,
         port: systemState.arduino.port,
-        simulationMode: systemState.arduino.simulationMode
+        simulationMode: systemState.arduino.simulationMode,
+        positions: systemState.arduino.positions || null
       });
       
       // Notifier l'assistant des chirurgiens déjà connectés
@@ -1109,7 +1144,8 @@ async function setupSockets(io) {
       socket.emit('arduino:status', {
         connected: systemState.arduino.connected,
         port: systemState.arduino.port,
-        simulationMode: systemState.arduino.simulationMode
+        simulationMode: systemState.arduino.simulationMode,
+        positions: systemState.arduino.positions || null
       });
       
       // Notifier l'assistant qu'un chirurgien est en ligne
@@ -1312,6 +1348,13 @@ async function setupSockets(io) {
         console.error('[SOCKET] Erreur archivage opération:', err);
       }
 
+      // Nettoyer les logs de commande pour ce patient (Surgical Black Box)
+      if (operationCommandLogs.has(patientId)) {
+        const logCount = operationCommandLogs.get(patientId).length;
+        operationCommandLogs.delete(patientId);
+        console.log(`[SOCKET] Logs commandes nettoyés pour patient ${patientId} (${logCount} commandes archivées)`);
+      }
+
       io.emit('patients:updated', { timestamp: new Date().toISOString() });
 
       // GÉNÉRER ET ENVOYER LE RAPPORT DE SESSION
@@ -1360,6 +1403,7 @@ async function setupSockets(io) {
       systemState.arduino.connected = data.connected;
       systemState.arduino.port = data.port;
       systemState.arduino.simulationMode = data.simulationMode || false;
+      systemState.arduino.positions = data.positions || null;
 
       // TRACKER LES CHANGEMENTS DANS LES MÉTRIQUES SI OPÉRATION ACTIVE
       if (systemState.operation.active) {
@@ -1379,7 +1423,8 @@ async function setupSockets(io) {
       io.emit('arduino:status', {
         connected: data.connected,
         port: data.port,
-        simulationMode: data.simulationMode
+        simulationMode: data.simulationMode,
+        positions: data.positions || null
       });
 
       console.log(`[SOCKET] Arduino status broadcast: ${data.connected ? 'CONNECTÉ' : 'DÉCONNECTÉ'}`);
@@ -1644,18 +1689,20 @@ async function setupSockets(io) {
 }
 
 // Fonction pour mettre à jour l'état Arduino depuis arduinoBridge.js
-export function updateArduinoStatus(io, connected, port, simulationMode = false) {
+export function updateArduinoStatus(io, connected, port, simulationMode = false, positions = null) {
   systemState.arduino.connected = connected;
   systemState.arduino.port = port;
   systemState.arduino.simulationMode = simulationMode;
-  
+  systemState.arduino.positions = positions;
+
   io.emit('arduino:status', {
     connected,
     port,
-    simulationMode
+    simulationMode,
+    positions: positions || null
   });
   
   console.log(`[SOCKET] Arduino status mis à jour: ${connected ? 'CONNECTÉ' : 'DÉCONNECTÉ'}`);
 }
 
-export { setupSockets, systemState };
+export { setupSockets, systemState, operationCommandLogs };
