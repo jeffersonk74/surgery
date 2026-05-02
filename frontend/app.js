@@ -63,6 +63,21 @@ function initDomElements() {
   assistantNameEl = document.getElementById('assistantName');
   assistantStatusEl = document.getElementById('assistantStatus');
 
+  // Sliders robot
+  sliders = {
+    coude: document.getElementById('coude'),
+    poignetRot: document.getElementById('poignetRot'),
+    poignetInc: document.getElementById('poignetInc'),
+    pince: document.getElementById('pince')
+  };
+
+  valueLabels = {
+    coude: document.getElementById('coudeValue'),
+    poignetRot: document.getElementById('poignetRotValue'),
+    poignetInc: document.getElementById('poignetIncValue'),
+    pince: document.getElementById('pinceValue')
+  };
+
   // Bouton reprise sécurité
   const btnResumeSafety = document.getElementById('btn-resume-safety');
   if (btnResumeSafety) btnResumeSafety.onclick = resumeOperation;
@@ -179,21 +194,10 @@ function initJoystick() {
 }
 
 // ---------------------------------------------------------------------------
-// Sliders
+// Sliders (initialisés dans initDomElements après DOMContentLoaded)
 // ---------------------------------------------------------------------------
-const sliders = {
-  coude: document.getElementById('coude'),
-  poignetRot: document.getElementById('poignetRot'),
-  poignetInc: document.getElementById('poignetInc'),
-  pince: document.getElementById('pince')
-};
-
-const valueLabels = {
-  coude: document.getElementById('coudeValue'),
-  poignetRot: document.getElementById('poignetRotValue'),
-  poignetInc: document.getElementById('poignetIncValue'),
-  pince: document.getElementById('pinceValue')
-};
+let sliders = {};
+let valueLabels = {};
 
 function updateSliderLabels() {
   Object.keys(sliders).forEach(key => {

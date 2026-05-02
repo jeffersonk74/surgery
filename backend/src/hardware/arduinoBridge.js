@@ -23,6 +23,8 @@ let simulationInterval = null;
 
 let reconnectionInterval = null;
 let serialBuffer = '';  // Buffer pour assembler les lignes série
+let lastDataReceived = 0;  // Timestamp dernière donnée reçue
+let zombieCheckInterval = null;  // Timer pour détection port zombie
 
 // Récupérer l'instance io
 export function setArduinoIo(io) {
@@ -34,7 +36,7 @@ export function setArduinoIo(io) {
 
 async function startConnectionMonitor() {
   if (reconnectionInterval) return;
-  
+
   reconnectionInterval = setInterval(async () => {
     if (!isConnected) {
       logger.info('[ARDUINO] Surveillance : Tentative de reconnexion...');
@@ -44,7 +46,26 @@ async function startConnectionMonitor() {
         // Silencieux, on réessaiera
       }
     }
-  }, 3000); 
+  }, 3000);
+
+  // Démarrer la détection de port zombie (30s sans données)
+  startZombiePortDetection();
+}
+
+// Détection de port zombie - si pas de données pendant 30s et isConnected=true
+function startZombiePortDetection() {
+  if (zombieCheckInterval) clearInterval(zombieCheckInterval);
+
+  zombieCheckInterval = setInterval(() => {
+    if (isConnected && lastDataReceived > 0) {
+      const elapsed = Date.now() - lastDataReceived;
+      if (elapsed > 30000) { // 30 secondes sans données
+        logger.warn(`[ARDUINO] Port zombie détecté - aucune donnée depuis ${elapsed}ms, tentative de reconnexion...`);
+        handleDisconnect();
+        // La reconnexion sera tentée par startConnectionMonitor
+      }
+    }
+  }, 5000); // Vérifier toutes les 5 secondes
 }
 
 // Surveillance PASSIVE - uniquement événements natifs, pas de ping
@@ -62,15 +83,16 @@ function startHeartbeatMonitor() {
 
 function handleDisconnect() {
   if (!isConnected) return;
-  
+
   isConnected = false;
   serialBuffer = '';
+  lastDataReceived = 0;  // Reset le timestamp
   logger.error('[ARDUINO] Robot déconnecté (Perte de signal)');
-  
+
   if (port && port.isOpen) {
     port.close();
   }
-  
+
   if (ioInstance) {
     updateArduinoStatus(ioInstance, false, null, simulationMode);
   }
@@ -128,6 +150,7 @@ async function initArduino() {
     });
 
     port.on('data', (data) => {
+      lastDataReceived = Date.now();  // Tracker la dernière réception de données
       serialBuffer += data.toString();
       
       // Traiter toutes les lignes complètes dans le buffer

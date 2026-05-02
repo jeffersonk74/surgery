@@ -629,6 +629,18 @@ async function setupSockets(io) {
     // Listener pour le chirurgien : move-command
     socket.on('move-command', (data) => {
       // data: { x, y, z, pitch, roll, yaw }
+
+      // Validation stricte des paramètres robot
+      const coords = ['x', 'y', 'z', 'roll', 'pitch', 'yaw'];
+      for (const coord of coords) {
+        const val = data[coord];
+        if (typeof val !== 'number' || isNaN(val) || val < 0 || val > 180) {
+          console.warn(`[SOCKET] Commande robot invalide rejetée: ${coord}=${val} (doit être un nombre entre 0 et 180)`);
+          socket.emit('error', { message: `Commande invalide: ${coord} doit être un nombre entre 0 et 180` });
+          return;
+        }
+      }
+
       // Envoi physique à l'Arduino avec callback pour ACK
       sendToRobot({
         x: data.x,

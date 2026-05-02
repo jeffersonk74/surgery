@@ -4,20 +4,47 @@
 import express from 'express';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
+import rateLimit from 'express-rate-limit';
 import prisma from '../config/prisma.js';
 
 const router = express.Router();
-const JWT_SECRET = process.env.JWT_SECRET || 'votre_secret_jwt_telechirurgie_2024';
 
-// Login
-router.post('/login', async (req, res) => {
+// JWT_SECRET est obligatoire - lancer une erreur si absent
+const JWT_SECRET = process.env.JWT_SECRET;
+if (!JWT_SECRET) {
+  throw new Error('[AUTH] JWT_SECRET environment variable is required. Set JWT_SECRET in your environment before starting the server.');
+}
+
+// Rate limiting pour le login: max 5 tentatives par IP toutes les 15 minutes
+const loginLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 5, // 5 tentatives max
+  message: { error: 'Trop de tentatives de connexion. Veuillez réessayer dans 15 minutes.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: (req) => req.ip || req.connection.remoteAddress
+});
+
+// Fonction de validation d'email
+function isValidEmail(email) {
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  return emailRegex.test(email);
+}
+
+// Login avec rate limiting
+router.post('/login', loginLimiter, async (req, res) => {
   try {
     const { email, password } = req.body;
-    
+
     if (!email || !password) {
       return res.status(400).json({ error: 'Email et mot de passe requis' });
     }
-    
+
+    // Validation de l'email
+    if (!isValidEmail(email)) {
+      return res.status(400).json({ error: 'Format d\'email invalide' });
+    }
+
     // Chercher l'utilisateur avec Prisma
     const user = await prisma.user.findUnique({
       where: { email }

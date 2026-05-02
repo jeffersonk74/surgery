@@ -7,7 +7,7 @@ import http from 'http';
 import { Server } from 'socket.io';
 import cors from 'cors';
 import prisma from './config/prisma.js';
-import authRoutes from './routes/auth.js';
+import authRoutes, { verifyToken } from './routes/auth.js';
 import patientRoutes from './routes/patients.js';
 import assistantRoutes from './routes/assistant.js';
 
@@ -39,8 +39,8 @@ app.get('/health', (req, res) => {
   });
 });
 
-// Route API pour obtenir le statut système complet (Arduino, assistants, chirurgiens)
-app.get('/api/system/status', (req, res) => {
+// Route API pour obtenir le statut système complet (Arduino, assistants, chirurgiens) - Protégée par JWT
+app.get('/api/system/status', verifyToken, (req, res) => {
   res.status(200).json(systemState.getSystemStatus());
 });
 
@@ -48,6 +48,16 @@ app.get('/api/system/status', (req, res) => {
 app.use('/api/auth', authRoutes);
 app.use('/api/patients', patientRoutes);
 app.use('/api/assistant', assistantRoutes);
+
+// Middleware de gestion d'erreurs global (doit être après toutes les routes)
+app.use((err, req, res, next) => {
+  console.error('[SERVER] Erreur globale:', err.message);
+  console.error(err.stack);
+  res.status(err.status || 500).json({
+    error: err.message || 'Erreur serveur interne',
+    timestamp: new Date().toISOString()
+  });
+});
 
 const server = http.createServer(app);
 
@@ -169,6 +179,18 @@ async function startServer() {
     process.exit(1);
   }
 }
+
+// Handlers pour erreurs non capturées - log sans crash
+process.on('uncaughtException', (err) => {
+  console.error('[SERVER] ❌ Uncaught Exception:', err.message);
+  console.error(err.stack);
+  // Ne pas appeler process.exit() pour garder le serveur en vie
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('[SERVER] ❌ Unhandled Rejection at:', promise, 'reason:', reason);
+  // Ne pas appeler process.exit() pour garder le serveur en vie
+});
 
 // Gestion gracieuse de l'arrêt
 process.on('SIGINT', async () => {

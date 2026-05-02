@@ -287,7 +287,7 @@ router.get('/download-logs/:patientId', async (req, res) => {
     
     for (let i = 0; i < numCommands; i++) {
       const commandData = {
-        patientId: patient.patient_id,
+        patientId: patient.patientId,
         commandIndex: i + 1,
         timestamp: new Date(Date.now() - (numCommands - i) * 60000).toISOString(),
         coordinates: {
@@ -316,13 +316,13 @@ router.get('/download-logs/:patientId', async (req, res) => {
         totalCommands: numCommands
       },
       patient: {
-        id: patient.patient_id,
+        id: patient.patientId,
         nom: patient.nom,
         prenom: patient.prenom,
         pathologie: pathologieBase,
         typeOperation: typeOperation,
         statut: patient.statut,
-        dateCreation: patient.created_at,
+        dateCreation: patient.createdAt,
         dateIntervention: patient.date_intervention || null
       },
       operator: {
@@ -332,7 +332,7 @@ router.get('/download-logs/:patientId', async (req, res) => {
       auditTrail: {
         commandLog: commandHashes,
         verificationHash: generateHash({
-          patientId: patient.patient_id,
+          patientId: patient.patientId,
           commands: commandHashes.map(h => h.hash)
         })
       },

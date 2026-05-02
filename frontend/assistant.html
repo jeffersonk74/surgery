@@ -971,14 +971,12 @@
 
                 // Patient créé en temps réel (depuis un autre client)
                 socket.on('patient:created', (data) => {
+                    // Dédéplication via EventDeduplicator avec _eventId
                     if (EventDeduplicator.isDuplicate(data._eventId)) return;
 
                     console.log('[ASSISTANT] Patient created via realtime:', data.patient.patientId);
 
-                    // Si c'est notre propre création, on l'a déjà ajoutée
-                    if (data.by === (currentUser?.id || 'assistant-1')) return;
-
-                    // Sinon, ajouter au tableau
+                    // Ajouter au tableau (la déduplication est gérée par EventDeduplicator)
                     addPatientToTable(data.patient);
                     showToast(`Nouveau patient: ${data.patient.nom}`, 'info');
                 });

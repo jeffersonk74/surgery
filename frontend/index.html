@@ -698,6 +698,9 @@
                 state.socket.emit('register', 'SURGEON', `Dr. ${state.user?.nom || 'Inconnu'}`);
                 state.socket.emit('surgeon:online', { userId: state.user?.id || `surgeon-${state.socket.id}` });
 
+                // Setup chat listeners after socket is connected
+                setupChatSocketListeners();
+
                 // ENTRÉE EN SALLE - Émettre l'événement si un patient est chargé
                 if (state.patient && !state.roomEntered) {
                     state.socket.emit('surgeon:enter-room', {
@@ -1857,12 +1860,6 @@
             a.click();
             document.body.removeChild(a);
             URL.revokeObjectURL(url);
-        }
-
-        // Setup listeners when socket connects
-        const originalSocketConnect = state.socket?.on?.bind(state.socket);
-        if (state.socket) {
-            setupChatSocketListeners();
         }
 
         // Start auto-detection on page load
