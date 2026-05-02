@@ -154,6 +154,7 @@ function initSocket() {
 
   socket.on('connect', () => {
     socket.emit('surgeon:online', { userId: currentUser?.id });
+    updateSocketStatusUI('connected');
 
     // Demander sync après connexion/reconnexion
     socket.emit('sync:request', {
@@ -164,11 +165,22 @@ function initSocket() {
 
   socket.on('reconnect', (attempt) => {
     console.log(`[DASHBOARD] Reconnecté après ${attempt} tentatives`);
+    updateSocketStatusUI('connected');
     NotificationQueue.add('Reconnecté au serveur', 'success');
+  });
+
+  socket.on('reconnecting', (attempt) => {
+    console.log(`[DASHBOARD] Tentative de reconnexion ${attempt}`);
+    updateSocketStatusUI('reconnecting');
+  });
+
+  socket.on('reconnect_error', () => {
+    updateSocketStatusUI('disconnected');
   });
 
   socket.on('disconnect', () => {
     console.log('[DASHBOARD] Déconnecté');
+    updateSocketStatusUI('disconnected');
     NotificationQueue.add('Déconnecté du serveur', 'warning');
   });
 
