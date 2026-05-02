@@ -396,6 +396,34 @@ function addPatientToTable(patient) {
 }
 
 // ---------------------------------------------------------------------------
+// Mise à jour de l'indicateur Socket.io
+// ---------------------------------------------------------------------------
+function updateSocketStatusUI(state) {
+  const socketDot   = document.getElementById('socketStatusDot');
+  const socketText  = document.getElementById('socketStatusText');
+  const socketIcon  = document.getElementById('socketIcon');
+
+  if (!socketDot || !socketText) return;
+
+  const states = {
+    connected:    { color: 'var(--emerald-500)', class: 'online', text: 'Connecté', icon: 'fa-wifi' },
+    reconnecting: { color: 'var(--amber-500)',   class: 'unknown', text: 'Reconnexion...', icon: 'fa-sync fa-spin' },
+    disconnected: { color: 'var(--rose-500)',    class: 'offline', text: 'Déconnecté', icon: 'fa-wifi-slash' }
+  };
+
+  const config = states[state] || states.disconnected;
+
+  socketDot.className = `status-indicator ${config.class}`;
+  socketText.textContent = config.text;
+  socketText.style.color = config.color;
+
+  if (socketIcon) {
+    socketIcon.className = `fas ${config.icon}`;
+    socketIcon.style.color = config.color;
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Vérification système prêt
 // ---------------------------------------------------------------------------
 function isSystemReady() {
