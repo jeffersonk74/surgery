@@ -1,0 +1,13 @@
+{
+  "name": "telechirurgie-frontend",
+  "version": "1.0.0",
+  "description": "Interface chirurgien pour téléchirurgie",
+  "scripts": {
+    "start": "npx http-server -p 5500 -c-1",
+    "dev": "npx http-server -p 5173 --cors -a 0.0.0.0 -c-1"
+  },
+  "devDependencies": {
+    "http-server": "^14.1.1",
+    "live-server": "^1.2.2"
+  }
+}

@@ -1,0 +1,121 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        Int      @id @default(autoincrement())
+  email     String   @unique
+  password  String
+  nom       String
+  prenom    String
+  role      String   // 'chirurgien' | 'assistant'
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  patientsAsChirurgien Patient[]  @relation("ChirurgienPatients")
+  patientsAsAssistant  Patient[]  @relation("AssistantPatients")
+  operations           Operation[]
+  assistantStatuses    AssistantStatus[]
+}
+
+model Patient {
+  id          Int      @id @default(autoincrement())
+  patientId   String   @unique
+  nom         String
+  prenom      String
+  pathologie  String
+  statut      String   @default("en_attente") // 'en_attente' | 'pret' | 'en_cours' | 'termine' | 'archive'
+  consentementPatient Boolean @default(false)
+  consentementAt DateTime?
+  
+  chirurgienId Int?
+  chirurgien   User?  @relation("ChirurgienPatients", fields: [chirurgienId], references: [id])
+  
+  assistantId  Int?
+  assistant    User?  @relation("AssistantPatients", fields: [assistantId], references: [id])
+  
+  operations        Operation[]
+  assistantStatuses AssistantStatus[]
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model AssistantStatus {
+  id        Int      @id @default(autoincrement())
+  statut    String   @default("en_attente") // 'en_attente' | 'pret'
+  updatedAt DateTime @updatedAt
+
+  patientId   Int
+  patient     Patient @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  
+  assistantId Int
+  assistant   User @relation(fields: [assistantId], references: [id], onDelete: Cascade)
+
+  @@unique([patientId, assistantId])
+}
+
+model Operation {
+  id             Int       @id @default(autoincrement())
+  dateDebut      DateTime?
+  dateFin        DateTime?
+  dureeSeconds   Int?
+  statut         String    @default("en_cours") // 'en_cours' | 'succes' | 'echec' | 'annule'
+  blockchainHash String?
+  createdAt      DateTime  @default(now())
+
+  patientId    Int
+  patient      Patient @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  
+  chirurgienId Int
+  chirurgien   User @relation(fields: [chirurgienId], references: [id])
+
+  blockchainLogs BlockchainLog[]
+}
+
+model BlockchainLog {
+  id        Int      @id @default(autoincrement())
+  sessionId String
+  hash      String
+  data      String?
+  createdAt DateTime @default(now())
+
+  operationId Int?
+  operation   Operation? @relation(fields: [operationId], references: [id], onDelete: SetNull)
+}
+
+model HistoriqueOperation {
+  id          Int      @id @default(autoincrement())
+  patientId   String
+  nom         String
+  prenom      String
+  pathologie  String
+  dateDebut   DateTime?
+  dateFin     DateTime?
+  statut      String   // 'terminee' | 'annulee' | 'echec'
+  createdAt   DateTime @default(now())
+}
+
+model RobotState {
+  id             Int       @id @default(autoincrement())
+  isConnected    Boolean   @default(false)
+  lastPing       DateTime?
+  port           String?
+  simulationMode Boolean   @default(false)
+  updatedAt      DateTime  @updatedAt
+}
+
+model SystemSession {
+  id              Int       @id @default(autoincrement())
+  sessionId       String    @unique
+  assistantOnline Boolean   @default(false)
+  assistantReady  Boolean   @default(false)
+  robotConnected  Boolean   @default(false)
+  activePatientId String?
+  lastUpdated     DateTime  @updatedAt
+}

@@ -1,0 +1,1872 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Interface d'Intervention Virtuelle</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <script>
+        function getBackendHost() {
+            const stored = localStorage.getItem('medibot_backend_host');
+            if (stored) return stored;
+            return window.location.hostname === 'localhost' ? 'localhost:3000' : '10.117.147.182:3000';
+        }
+        const BACKEND_HOST = getBackendHost();
+        document.write(`<script src="http://${BACKEND_HOST}/socket.io/socket.io.js"><\/script>`);
+    </script>
+    <style>
+        * {
+            border-radius: 0 !important;
+        }
+
+        .tech-grid {
+            background-color: #020617;
+            background-image:
+                linear-gradient(rgba(30, 41, 59, 0.35) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(30, 41, 59, 0.35) 1px, transparent 1px);
+            background-size: 32px 32px;
+            background-position: -1px -1px;
+        }
+
+        .pulse-dot {
+            animation: pulse-dot 1.2s ease-in-out infinite;
+        }
+
+        .rec-dot {
+            animation: rec-dot 0.9s ease-in-out infinite;
+        }
+
+        @keyframes pulse-dot {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.35; }
+        }
+
+        @keyframes rec-dot {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.2; }
+        }
+    </style>
+</head>
+<body class="h-screen w-screen overflow-hidden bg-slate-900 text-slate-100 antialiased">
+    <div class="flex h-full w-full flex-col">
+        <header class="border-b border-slate-800 bg-slate-950 rounded-none flex-shrink-0">
+            <div class="flex items-center justify-between gap-4 px-4 py-2">
+                <div class="flex items-center gap-3">
+                    <button id="btn-back" class="inline-flex h-10 w-10 items-center justify-center border border-slate-800 bg-slate-950 text-slate-300 hover:bg-slate-900 rounded-none" type="button">
+                        <i data-lucide="arrow-left" class="h-4 w-4"></i>
+                    </button>
+                    <div class="space-y-1">
+                        <div class="text-[10px] uppercase tracking-widest text-slate-400">Interface d'intervention virtuelle</div>
+                        <h1 class="text-base font-semibold uppercase tracking-wider">Dossier: Jean Dupont | Ref: PAT-2026-0001</h1>
+                    </div>
+                </div>
+
+                <div class="flex items-center gap-4">
+                    <div class="inline-flex items-center gap-2 border border-emerald-700 bg-emerald-950/50 px-3 py-2 rounded-none">
+                        <span class="h-2 w-2 bg-emerald-400 pulse-dot rounded-none"></span>
+                        <span class="text-[10px] font-semibold uppercase tracking-widest text-emerald-300">Online</span>
+                    </div>
+
+                    <button id="btn-estop" class="inline-flex items-center gap-2 border border-rose-700 bg-rose-950 px-4 py-2 text-[10px] font-semibold uppercase tracking-widest text-rose-300 hover:bg-rose-900 rounded-none" type="button">
+                        <i data-lucide="siren" class="h-4 w-4"></i>
+                        E-Stop Robot
+                    </button>
+                </div>
+            </div>
+        </header>
+
+        <main class="grid flex-1 grid-cols-1 gap-2 bg-slate-900 p-2 xl:grid-cols-[1fr_320px] overflow-hidden">
+            <section class="relative h-full border border-slate-800 bg-slate-950 p-2 rounded-none overflow-hidden">
+                <div class="relative h-full border border-slate-800 rounded-none tech-grid">
+                    <div class="pointer-events-none absolute left-4 top-4 inline-flex items-center gap-2 border border-blue-800 bg-slate-950 px-3 py-2 rounded-none">
+                        <i data-lucide="camera" class="h-4 w-4 text-blue-300"></i>
+                        <span id="cameraStateLabel" class="text-[10px] uppercase tracking-widest text-blue-200">Cam_01_Standby</span>
+                    </div>
+
+                    <div class="pointer-events-none absolute right-4 top-4 inline-flex items-center gap-2 border border-slate-800 bg-slate-950 px-3 py-2 rounded-none">
+                        <i data-lucide="scan" class="h-4 w-4 text-slate-300"></i>
+                        <span class="text-[10px] uppercase tracking-widest text-slate-300">Auto Framing</span>
+                    </div>
+
+                    <video id="localVideo" class="absolute inset-0 z-10 h-full w-full object-cover hidden" autoplay playsinline muted></video>
+
+                    <div id="videoOverlay" class="absolute inset-0 z-20 flex pointer-events-none items-center justify-center hover:bg-slate-950/20 transition-colors">
+                        <div id="videoOverlayCard" class="pointer-events-auto border border-slate-800 bg-slate-950/70 px-8 py-6 text-center rounded-none hover:border-emerald-700 transition-colors cursor-pointer">
+                            <div class="mx-auto mb-3 inline-flex h-14 w-14 items-center justify-center border border-slate-800 bg-slate-900 rounded-none group-hover:border-emerald-700">
+                                <i data-lucide="video-off" class="h-6 w-6 text-slate-500"></i>
+                            </div>
+                            <p id="videoOverlayTitle" class="text-xs font-semibold uppercase tracking-[0.4em] text-slate-400">Signal Absent</p>
+                            <p id="videoOverlayText" class="mt-2 text-[10px] uppercase tracking-widest text-slate-500">Cliquez pour activer la caméra</p>
+                        </div>
+                    </div>
+
+                    <div id="recBadge" class="pointer-events-none absolute left-1/2 top-4 z-30 hidden -translate-x-1/2 items-center gap-2 border border-rose-700 bg-rose-950/80 px-4 py-2 text-rose-100 rounded-none backdrop-blur-sm">
+                        <span class="h-2 w-2 bg-rose-400 rec-dot rounded-none"></span>
+                        <span class="text-[10px] uppercase tracking-widest text-rose-300">REC</span>
+                        <span id="recTimer" class="font-mono text-[11px] text-rose-100">00:00</span>
+                    </div>
+
+                    <div class="absolute bottom-4 left-1/2 z-30 -translate-x-1/2 rounded-none">
+                        <div class="flex items-center justify-center gap-3">
+                            <button id="callBtn" class="inline-flex items-center gap-2 border border-emerald-700 bg-emerald-800 px-5 py-3 text-[10px] font-semibold uppercase tracking-widest text-emerald-100 hover:bg-emerald-700 rounded-none" type="button">
+                                <i data-lucide="phone-call" class="h-4 w-4"></i>
+                                Démarrer
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <aside class="flex h-full flex-col gap-2 overflow-y-auto">
+                <div class="border border-slate-800 bg-slate-950 p-3 rounded-none">
+                    <div class="mb-3 text-[10px] font-semibold uppercase tracking-widest text-slate-400">Core Controls</div>
+                    <div class="space-y-2">
+                        <button class="w-full border border-blue-700 bg-blue-700 px-4 py-3 text-[10px] font-semibold uppercase tracking-widest text-blue-100 hover:bg-blue-600 rounded-none" type="button">
+                            Commit Step
+                        </button>
+                        <button id="btn-complete" class="w-full border border-slate-700 bg-slate-900 px-4 py-3 text-[10px] font-semibold uppercase tracking-widest text-slate-200 hover:bg-slate-800 rounded-none" type="button">
+                            End Session
+                        </button>
+                    </div>
+                </div>
+
+                <div class="border border-slate-800 bg-slate-950 p-3 rounded-none">
+                    <div class="mb-2 text-[10px] font-semibold uppercase tracking-widest text-slate-400">Telemetry Monitors</div>
+
+                    <div class="mb-2 border border-slate-800 border-l-4 border-l-blue-500 bg-slate-950 p-2 rounded-none">
+                        <div class="mb-3 flex items-center justify-between">
+                            <div class="inline-flex items-center gap-2 text-[10px] uppercase tracking-widest text-blue-200">
+                                <i data-lucide="user-round" class="h-4 w-4"></i>
+                                Subject_01
+                            </div>
+                            <span class="font-mono text-[10px] uppercase tracking-widest text-blue-300" id="patientId">PAT-2026-0001</span>
+                        </div>
+                        <div class="space-y-2 border-t border-slate-800 pt-2">
+                            <div class="flex items-center justify-between text-[10px] uppercase tracking-widest">
+                                <span class="text-slate-500">Nom</span>
+                                <span class="font-mono text-slate-100" id="patientName">J. DUPONT</span>
+                            </div>
+                            <div class="flex items-center justify-between text-[10px] uppercase tracking-widest">
+                                <span class="text-slate-500">Statut</span>
+                                <span class="font-mono text-emerald-300" id="patientStatus">Nominal</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="border border-slate-800 border-l-4 border-l-violet-500 bg-slate-950 p-2 rounded-none">
+                        <div class="mb-3 inline-flex items-center gap-2 text-[10px] uppercase tracking-widest text-violet-200">
+                            <i data-lucide="shield-user" class="h-4 w-4"></i>
+                            Assistant_Remote
+                        </div>
+                        <div class="space-y-2 border-t border-slate-800 pt-2">
+                            <div class="flex items-center justify-between text-[10px] uppercase tracking-widest">
+                                <span class="text-slate-500">UID</span>
+                                <span class="font-mono text-slate-100" id="assistantName">A_MERCIER_88</span>
+                            </div>
+                            <div class="flex items-center justify-between text-[10px] uppercase tracking-widest">
+                                <span class="text-slate-500">Link</span>
+                                <span class="font-mono text-emerald-300" id="assistantStatus">Stable</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Chat Modal Button -->
+                    <button id="chat-modal-btn" class="w-full border border-blue-800 border-l-4 border-l-blue-500 bg-slate-950 p-3 text-left hover:bg-slate-900 transition-colors rounded-none" type="button">
+                        <div class="flex items-center justify-between">
+                            <div class="inline-flex items-center gap-2 text-[10px] uppercase tracking-widest text-blue-200">
+                                <i data-lucide="message-square" class="h-4 w-4"></i>
+                                Communication
+                            </div>
+                            <span id="chat-unread-badge" class="hidden h-5 min-w-[20px] rounded-full bg-rose-500 px-1.5 text-[10px] font-bold text-white flex items-center justify-center">0</span>
+                        </div>
+                        <div class="mt-2 flex items-center gap-2 text-[10px] text-slate-500">
+                            <span id="chat-status-dot" class="h-2 w-2 rounded-full bg-emerald-500"></span>
+                            <span id="chat-status-text">Connecté à l'assistant</span>
+                        </div>
+                    </button>
+
+                    <!-- Arduino Control Panel -->
+                    <div class="border border-slate-800 border-l-4 border-l-amber-500 bg-slate-950 p-2 rounded-none">
+                        <div class="mb-2 flex items-center justify-between">
+                            <div class="inline-flex items-center gap-2 text-[10px] uppercase tracking-widest text-amber-200">
+                                <i data-lucide="cpu" class="h-4 w-4"></i>
+                                Arduino_Control
+                            </div>
+                            <span id="arduinoStatus" class="h-2 w-2 rounded-full bg-rose-500"></span>
+                        </div>
+                        <div class="space-y-2 border-t border-slate-800 pt-2">
+                            <div id="arduino-status-indicator" class="flex items-center justify-between border border-slate-800 bg-slate-900 px-3 py-2 rounded-none">
+                                <div class="flex items-center gap-2">
+                                    <i data-lucide="usb" class="h-3 w-3 text-slate-500"></i>
+                                    <span id="arduino-status-text" class="text-[10px] uppercase tracking-widest text-slate-400">Recherche...</span>
+                                </div>
+                                <span id="arduino-connection-dot" class="h-2 w-2 rounded-full bg-amber-500 animate-pulse"></span>
+                            </div>
+
+                            <div id="joystick-display" class="hidden space-y-1">
+                                <div class="text-[9px] uppercase tracking-widest text-slate-500">Positions Servos (Réelles)</div>
+                                <div class="grid grid-cols-2 gap-1 text-[10px] font-mono">
+                                    <div class="flex justify-between border border-slate-800 bg-slate-900 px-2 py-1">
+                                        <span class="text-slate-500">Base</span>
+                                        <span id="cmd-base" class="text-amber-300">--</span>
+                                    </div>
+                                    <div class="flex justify-between border border-slate-800 bg-slate-900 px-2 py-1">
+                                        <span class="text-slate-500">Epaule</span>
+                                        <span id="cmd-epaule" class="text-amber-300">--</span>
+                                    </div>
+                                    <div class="flex justify-between border border-slate-800 bg-slate-900 px-2 py-1">
+                                        <span class="text-slate-500">Coude</span>
+                                        <span id="cmd-coude" class="text-amber-300">--</span>
+                                    </div>
+                                    <div class="flex justify-between border border-slate-800 bg-slate-900 px-2 py-1">
+                                        <span class="text-slate-500">Poignet</span>
+                                        <span id="cmd-poignet" class="text-amber-300">--</span>
+                                    </div>
+                                    <div class="flex justify-between border border-slate-800 bg-slate-900 px-2 py-1">
+                                        <span class="text-slate-500">Inclinaison</span>
+                                        <span id="cmd-inc" class="text-amber-300">--</span>
+                                    </div>
+                                    <div class="flex justify-between border border-slate-800 bg-slate-900 px-2 py-1">
+                                        <span class="text-slate-500">Pince</span>
+                                        <span id="cmd-pince" class="text-amber-300">--</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Chat Communication Panel -->
+                    <div class="mt-3 border border-slate-800 bg-slate-950 p-3 rounded-none">
+                        <div class="mb-2 flex items-center justify-between">
+                            <div class="inline-flex items-center gap-2 text-[10px] uppercase tracking-widest text-blue-200">
+                                <i data-lucide="message-square" class="h-4 w-4"></i>
+                                Communication
+                            </div>
+                            <span id="chat-status" class="h-2 w-2 rounded-full bg-emerald-500"></span>
+                        </div>
+
+                        <!-- Chat Messages -->
+                        <div id="chat-messages" class="h-32 overflow-y-auto border border-slate-800 bg-slate-900 p-2 text-xs space-y-1 mb-2">
+                            <div class="text-center text-[10px] text-slate-500 italic">Connecté à l'assistant</div>
+                        </div>
+
+                        <!-- Chat Input -->
+                        <div class="flex gap-1">
+                            <input id="chat-input" type="text" placeholder="Message..." class="flex-1 border border-slate-800 bg-slate-900 px-2 py-1 text-[11px] text-slate-200 rounded-none focus:border-blue-700 focus:outline-none">
+                            <button id="chat-send-btn" class="border border-blue-800 bg-blue-900/30 px-2 py-1 text-blue-300 hover:bg-blue-900/50 rounded-none" type="button">
+                                <i data-lucide="send" class="h-3 w-3"></i>
+                            </button>
+                        </div>
+
+                        <!-- Chat Actions -->
+                        <div class="mt-2 flex gap-1">
+                            <button id="chat-voice-btn" class="flex-1 border border-slate-800 bg-slate-900 py-1 text-[9px] uppercase tracking-widest text-slate-400 hover:bg-slate-800 rounded-none" type="button">
+                                <i data-lucide="mic" class="mr-1 inline h-3 w-3"></i>
+                                Vocal
+                            </button>
+                            <button id="chat-file-btn" class="flex-1 border border-slate-800 bg-slate-900 py-1 text-[9px] uppercase tracking-widest text-slate-400 hover:bg-slate-800 rounded-none" type="button">
+                                <i data-lucide="paperclip" class="mr-1 inline h-3 w-3"></i>
+                                Fichier
+                            </button>
+                        </div>
+                        <input id="chat-file-input" type="file" class="hidden" accept="image/*,.pdf,.doc,.docx">
+                    </div>
+                </div>
+            </aside>
+        </main>
+
+        <footer class="border-t border-slate-800 bg-slate-950 px-3 py-2 rounded-none">
+            <div class="flex flex-wrap items-center justify-between gap-3">
+                <div class="inline-flex items-center gap-3 border border-slate-800 bg-slate-900 px-3 py-2 rounded-none">
+                    <div class="inline-flex items-center gap-2 text-[10px] uppercase tracking-widest text-slate-400">
+                        <i data-lucide="wifi" class="h-4 w-4"></i>
+                        <span>Latence réseau:</span>
+                    </div>
+                    <span id="latency" class="font-mono text-[11px] text-emerald-300">-- ms</span>
+                    <span id="latency-indicator" class="h-2 w-2 rounded-full bg-emerald-500"></span>
+                </div>
+
+                <button id="speed-control-btn" class="inline-flex items-center gap-2 border border-amber-800 bg-slate-900 px-3 py-2 text-[10px] uppercase tracking-widest text-amber-300 rounded-none hover:bg-amber-950 transition-colors" type="button">
+                    <i data-lucide="gauge" class="h-4 w-4"></i>
+                    Vitesse Moteurs
+                    <span id="motor-speed-badge" class="font-mono text-amber-100">12</span>
+                </button>
+
+                <button id="blockchain-trigger" class="inline-flex items-center gap-2 border border-emerald-800 bg-slate-900 px-3 py-2 text-[10px] uppercase tracking-widest text-emerald-300 rounded-none" type="button">
+                    <i data-lucide="shield-check" class="h-4 w-4"></i>
+                    Blockchain_Verified_Session
+                    <span id="blockCount" class="font-mono text-emerald-100">01</span>
+                </button>
+            </div>
+        </footer>
+    </div>
+
+    <div id="blockchain-panel" class="fixed bottom-20 right-4 hidden w-[340px] border border-slate-800 bg-slate-950 p-4 text-slate-200 rounded-none">
+        <div class="mb-3 flex items-center justify-between border-b border-slate-800 pb-2">
+            <h3 class="text-[10px] font-semibold uppercase tracking-widest">Registre d'audit</h3>
+            <button id="close-panel" class="inline-flex h-7 w-7 items-center justify-center border border-slate-800 text-slate-300 hover:bg-slate-800 rounded-none" type="button">
+                <i data-lucide="x" class="h-4 w-4"></i>
+            </button>
+        </div>
+        <p class="mb-3 text-[10px] uppercase tracking-widest text-slate-500">Toutes les actions sont signées et horodatées.</p>
+        <div class="border border-slate-800 bg-slate-900 p-3 rounded-none">
+            <p class="text-[10px] uppercase tracking-widest text-slate-500">Dernier hash vérifié</p>
+            <p id="blockchain-hash" class="mt-2 break-all font-mono text-xs text-emerald-300">d8f4b970fd92cc8f85e8d1492b9aef1f</p>
+        </div>
+    </div>
+
+    <div id="safety-alert" class="fixed left-4 right-4 top-4 z-50 hidden border border-rose-700 bg-rose-950 px-4 py-3 text-rose-100 rounded-none">
+        <div class="flex items-center justify-between gap-3">
+            <div>
+                <p class="text-[10px] font-semibold uppercase tracking-widest">Alerte sécurité</p>
+                <p class="text-xs">Latence élevée détectée, mouvement robot suspendu.</p>
+            </div>
+            <button id="btn-resume-safety" class="border border-rose-500 bg-rose-700 px-3 py-2 text-[10px] font-semibold uppercase tracking-widest rounded-none" type="button">Réinitialiser</button>
+        </div>
+    </div>
+
+    <div id="activation-toast" class="fixed left-1/2 top-20 z-50 hidden -translate-x-1/2 border border-blue-700 bg-blue-950 px-4 py-3 text-blue-100 rounded-none">
+        <div class="flex items-center gap-3">
+            <i data-lucide="loader" class="h-4 w-4 animate-spin"></i>
+            <div>
+                <p class="text-[10px] font-semibold uppercase tracking-widest">Activation</p>
+                <p class="text-xs">Activation de la caméra ...</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Speed Control Modal -->
+    <div id="speed-modal" class="fixed inset-0 z-50 hidden bg-black/70 backdrop-blur-sm">
+        <div class="flex min-h-full items-center justify-center p-4">
+            <div class="w-full max-w-sm border border-amber-800 bg-slate-950 p-6 text-slate-200 rounded-none shadow-2xl">
+                <div class="mb-4 flex items-center justify-between border-b border-slate-800 pb-3">
+                    <h3 class="text-[11px] font-semibold uppercase tracking-widest text-amber-300">
+                        <i data-lucide="gauge" class="mr-2 inline h-4 w-4"></i>
+                        Contrôle Vitesse Moteurs
+                    </h3>
+                    <button id="close-speed-modal" class="inline-flex h-7 w-7 items-center justify-center border border-slate-800 text-slate-300 hover:bg-slate-800 rounded-none" type="button">
+                        <i data-lucide="x" class="h-4 w-4"></i>
+                    </button>
+                </div>
+
+                <div class="space-y-4">
+                    <div class="text-center">
+                        <span id="speed-modal-value" class="text-3xl font-mono font-bold text-amber-300">12</span>
+                        <p class="text-[10px] uppercase tracking-widest text-slate-500 mt-1">Sensibilité joystick</p>
+                    </div>
+
+                    <div class="px-2">
+                        <input id="motor-speed-slider" type="range" min="1" max="50" value="12"
+                            class="h-2 w-full cursor-pointer appearance-none bg-slate-700 accent-amber-500 rounded-none">
+                        <div class="mt-2 flex justify-between text-[10px] text-slate-500">
+                            <span>Lent (1)</span>
+                            <span>Rapide (50)</span>
+                        </div>
+                    </div>
+
+                    <div class="border border-slate-800 bg-slate-900 p-3 rounded-none">
+                        <p class="text-[10px] text-slate-400">
+                            <i data-lucide="info" class="mr-1 inline h-3 w-3"></i>
+                            Valeur actuelle appliquée aux 6 moteurs
+                        </p>
+                    </div>
+
+                    <button id="apply-speed-btn" class="w-full border border-amber-700 bg-amber-900/30 px-4 py-3 text-[11px] font-semibold uppercase tracking-widest text-amber-300 hover:bg-amber-900/50 rounded-none transition-colors" type="button">
+                        Appliquer & Fermer
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Floating Chat Modal -->
+    <div id="chat-modal" class="fixed bottom-4 right-4 z-40 hidden w-[380px] border border-slate-700 bg-slate-950 shadow-2xl rounded-none" style="min-height: 450px; max-height: 600px;">
+        <!-- Header - Draggable -->
+        <div id="chat-modal-header" class="flex items-center justify-between border-b border-slate-800 bg-slate-900 px-4 py-3 cursor-move select-none">
+            <div class="flex items-center gap-2">
+                <i data-lucide="message-square" class="h-4 w-4 text-blue-400"></i>
+                <span class="text-[11px] font-semibold uppercase tracking-widest text-slate-200">Communication Assistant</span>
+                <span id="chat-modal-status" class="ml-2 h-2 w-2 rounded-full bg-emerald-500"></span>
+            </div>
+            <div class="flex items-center gap-1">
+                <button id="chat-minimize-btn" class="inline-flex h-6 w-6 items-center justify-center text-slate-400 hover:text-slate-200" type="button">
+                    <i data-lucide="minus" class="h-4 w-4"></i>
+                </button>
+                <button id="chat-close-btn" class="inline-flex h-6 w-6 items-center justify-center text-slate-400 hover:text-rose-400" type="button">
+                    <i data-lucide="x" class="h-4 w-4"></i>
+                </button>
+            </div>
+        </div>
+
+        <!-- Chat Content -->
+        <div id="chat-modal-content" class="flex flex-col" style="height: calc(450px - 50px);">
+            <!-- Messages -->
+            <div id="chat-modal-messages" class="flex-1 overflow-y-auto border-b border-slate-800 bg-slate-900/50 p-3 space-y-2">
+                <div class="text-center text-[10px] text-slate-500 italic">Connecté à l'assistant</div>
+            </div>
+
+            <!-- Input Area -->
+            <div class="p-3 space-y-2 bg-slate-950">
+                <div class="flex gap-2">
+                    <input id="chat-modal-input" type="text" placeholder="Votre message..."
+                        class="flex-1 border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-200 rounded-none focus:border-blue-600 focus:outline-none">
+                    <button id="chat-modal-send" class="border border-blue-700 bg-blue-900/30 px-3 py-2 text-blue-300 hover:bg-blue-900/50 rounded-none" type="button">
+                        <i data-lucide="send" class="h-4 w-4"></i>
+                    </button>
+                </div>
+                <div class="flex gap-2">
+                    <button id="chat-modal-voice" class="flex-1 border border-slate-700 bg-slate-900 py-1.5 text-[10px] uppercase tracking-widest text-slate-400 hover:bg-slate-800 rounded-none flex items-center justify-center gap-1" type="button">
+                        <i data-lucide="mic" class="h-3 w-3"></i>
+                        Vocal
+                    </button>
+                    <button id="chat-modal-file" class="flex-1 border border-slate-700 bg-slate-900 py-1.5 text-[10px] uppercase tracking-widest text-slate-400 hover:bg-slate-800 rounded-none flex items-center justify-center gap-1" type="button">
+                        <i data-lucide="paperclip" class="h-3 w-3"></i>
+                        Fichier
+                    </button>
+                </div>
+                <input id="chat-modal-file-input" type="file" class="hidden" accept="image/*,.pdf,.doc,.docx">
+            </div>
+        </div>
+
+        <!-- Minimized State -->
+        <div id="chat-modal-minimized" class="hidden px-4 py-2">
+            <div class="flex items-center justify-between">
+                <span class="text-[11px] text-slate-400">Chat minimisé</span>
+                <button id="chat-restore-btn" class="text-[11px] text-blue-400 hover:text-blue-300">Restaurer</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const state = {
+            socket: null,
+            roomEntered: false,
+            operationStarted: false,
+            cameraConnected: false,
+            localStream: null,
+            startedAt: null,
+            timer: null,
+            patient: null,
+            user: null
+        };
+
+        const API_URL = `http://${BACKEND_HOST}/api`;
+        const WS_URL = `http://${BACKEND_HOST}`;
+        const callBtn = document.getElementById('callBtn');
+        const recBadge = document.getElementById('recBadge');
+        const recTimer = document.getElementById('recTimer');
+        const panel = document.getElementById('blockchain-panel');
+        const openPanel = document.getElementById('blockchain-trigger');
+        const closePanel = document.getElementById('close-panel');
+        const btnBack = document.getElementById('btn-back');
+        const btnComplete = document.getElementById('btn-complete');
+        const patientIdEl = document.getElementById('patientId');
+        const patientNameEl = document.getElementById('patientName');
+        const patientStatusEl = document.getElementById('patientStatus');
+        const headerTitle = document.querySelector('header h1');
+        const assistantStatusEl = document.getElementById('assistantStatus');
+        const videoOverlay = document.getElementById('videoOverlay');
+        const videoOverlayCard = document.getElementById('videoOverlayCard');
+        const videoOverlayTitle = document.getElementById('videoOverlayTitle');
+        const videoOverlayText = document.getElementById('videoOverlayText');
+        const cameraStateLabel = document.getElementById('cameraStateLabel');
+        const localVideo = document.getElementById('localVideo');
+
+        function getOperationStorageKey(patientId) {
+            return `operation_started_${patientId}`;
+        }
+
+        function formatTime(totalSeconds) {
+            const m = String(Math.floor(totalSeconds / 60)).padStart(2, '0');
+            const s = String(totalSeconds % 60).padStart(2, '0');
+            return `${m}:${s}`;
+        }
+
+        function refreshIcons() {
+            if (window.lucide) {
+                window.lucide.createIcons();
+            }
+        }
+
+        function updateCallButtonUI() {
+            console.log('[CHIRURGIEN] updateCallButtonUI - operationStarted:', state.operationStarted, 'assistantReady:', state.assistantReady, 'patientConsented:', state.patientConsented);
+            if (!state.operationStarted) {
+                callBtn.className = 'inline-flex items-center gap-2 border border-emerald-700 bg-emerald-800 px-5 py-3 text-[10px] font-semibold uppercase tracking-widest text-emerald-100 hover:bg-emerald-700 rounded-none';
+                callBtn.innerHTML = '<i data-lucide="phone-call" class="h-4 w-4"></i>Démarrer';
+                callBtn.style.display = '';
+                callBtn.disabled = false;
+                callBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+                recBadge.classList.add('hidden');
+                recBadge.classList.remove('inline-flex');
+            } else {
+                callBtn.style.display = 'none';
+                recBadge.classList.remove('hidden');
+                recBadge.classList.add('inline-flex');
+            }
+            refreshIcons();
+        }
+
+        function updateVideoUI() {
+            if (state.cameraConnected) {
+                videoOverlay.classList.add('hidden');
+                cameraStateLabel.textContent = 'Cam_01_Main_Feed';
+            } else {
+                videoOverlay.classList.remove('hidden');
+                cameraStateLabel.textContent = state.operationStarted ? 'Cam_01_Link_Down' : 'Cam_01_Standby';
+                videoOverlayTitle.textContent = state.operationStarted ? 'Flux Interrompu' : 'Signal Absent';
+                videoOverlayText.textContent = state.operationStarted
+                    ? 'Liaison caméra coupée, intervention toujours active...'
+                    : 'Recherche du flux SDI over IP...';
+            }
+        }
+
+        function startOperationTimer() {
+            if (state.timer) {
+                clearInterval(state.timer);
+            }
+            state.timer = window.setInterval(() => {
+                const elapsed = Math.floor((Date.now() - state.startedAt) / 1000);
+                recTimer.textContent = formatTime(elapsed);
+            }, 1000);
+        }
+
+        async function startOperation() {
+            if (!state.patient) {
+                alert('Aucun patient sélectionné.');
+                window.location.href = 'dashboard.html';
+                return;
+            }
+
+            if (state.operationStarted) return;
+            if (!state.socket?.connected) {
+                alert('Connexion serveur indisponible. Impossible de démarrer l\'intervention.');
+                return;
+            }
+
+            // Si la caméra n'est pas active, afficher un toast puis l'activer
+            if (!state.cameraConnected) {
+                const toast = document.getElementById('activation-toast');
+                if (toast) toast.classList.remove('hidden');
+                try {
+                    await startCameraFromOverlay();
+                } catch (err) {
+                    if (toast) toast.classList.add('hidden');
+                    alert('Impossible d\'activer la caméra: ' + (err?.message || err));
+                    return;
+                }
+                if (toast) setTimeout(() => toast.classList.add('hidden'), 300);
+            }
+
+            // Maintenant démarrer l'intervention
+            state.operationStarted = true;
+            state.startedAt = Date.now();
+            sessionStorage.setItem(getOperationStorageKey(state.patient.id), 'true');
+            updateCallButtonUI();
+            updateVideoUI();
+            patientStatusEl.textContent = 'INTERVENTION ACTIVE';
+            patientStatusEl.style.color = '#10b981';
+
+            if (state.socket?.connected) {
+                state.socket.emit('operation:start', {
+                    patientId: state.patient.id,
+                    timestamp: new Date().toISOString()
+                });
+            }
+
+            startOperationTimer();
+        }
+
+        function startCameraFromOverlay() {
+            console.log('[CHIRURGIEN] startCameraFromOverlay appelé');
+            return new Promise((resolve, reject) => {
+                if (state.cameraConnected) {
+                    console.log('[CHIRURGIEN] Caméra déjà connectée, on sort');
+                    return resolve();
+                }
+
+                if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+                    return reject(new Error('Votre navigateur ne supporte pas l\'accès à la caméra'));
+                }
+
+                navigator.mediaDevices.getUserMedia({ video: true, audio: false })
+                    .then(stream => {
+                        console.log('[CHIRURGIEN] Stream obtenu:', stream);
+                        state.localStream = stream;
+                        localVideo.srcObject = stream;
+                        localVideo.classList.remove('hidden');
+                        localVideo.style.display = 'block';
+                        videoOverlay.classList.add('hidden');
+                        videoOverlay.style.display = 'none';
+                        state.cameraConnected = true;
+                        cameraStateLabel.textContent = 'Cam_01_Active';
+                        resolve();
+                    })
+                    .catch(err => {
+                        console.error('[CHIRURGIEN] Erreur caméra:', err?.name, err?.message || err);
+                        reject(err);
+                    });
+            });
+        }
+
+        // Le parent overlay n'est pas cliquable; seul le "card" central déclenche la caméra
+        if (videoOverlayCard) {
+            videoOverlayCard.addEventListener('click', (e) => {
+                e.stopPropagation();
+                startCameraFromOverlay();
+            });
+        }
+
+        function stopCameraStream() {
+            try {
+                if (state.localStream) {
+                    state.localStream.getTracks().forEach(t => t.stop());
+                    state.localStream = null;
+                }
+            } catch (e) {
+                console.warn('Erreur lors de l\'arrêt du flux caméra', e);
+            }
+            state.cameraConnected = false;
+            localVideo.srcObject = null;
+            localVideo.classList.add('hidden');
+            updateVideoUI();
+            updateCallButtonUI();
+        }
+
+        function toggleCameraLink() {
+            state.cameraConnected = !state.cameraConnected;
+            updateCallButtonUI();
+            updateVideoUI();
+        }
+
+        function stopOperationTimer() {
+            if (state.timer) {
+                clearInterval(state.timer);
+                state.timer = null;
+            }
+            recTimer.textContent = '00:00';
+        }
+
+        function hydratePatientContext() {
+            const patient = JSON.parse(sessionStorage.getItem('currentPatient') || 'null');
+            const user = JSON.parse(sessionStorage.getItem('user') || 'null');
+            const token = sessionStorage.getItem('token');
+
+            if (!token || !patient) {
+                window.location.href = 'dashboard.html';
+                return false;
+            }
+
+            state.patient = patient;
+            state.user = user || {};
+            state.assistantReady = false;
+            state.patientConsented = false;
+
+            if (headerTitle) {
+                headerTitle.textContent = `Dossier: ${patient.name} | Ref: ${patient.id}`;
+            }
+            if (patientIdEl) patientIdEl.textContent = patient.id;
+            if (patientNameEl) patientNameEl.textContent = patient.name;
+            if (patientStatusEl) {
+                patientStatusEl.textContent = 'PRÊT POUR INTERVENTION';
+                patientStatusEl.style.color = '#f59e0b';
+            }
+
+            const alreadyStarted = sessionStorage.getItem(getOperationStorageKey(patient.id)) === 'true';
+            if (alreadyStarted) {
+                state.operationStarted = true;
+                state.cameraConnected = true;
+                state.startedAt = Date.now();
+                patientStatusEl.textContent = 'INTERVENTION ACTIVE';
+                patientStatusEl.style.color = '#10b981';
+                startOperationTimer();
+            }
+
+            updateCallButtonUI();
+            updateVideoUI();
+            return true;
+        }
+
+        function initSocket() {
+            if (typeof io === 'undefined') return;
+
+            state.socket = io(WS_URL, {
+                transports: ['websocket', 'polling']
+            });
+
+            state.socket.on('connect', () => {
+                state.socket.emit('register', 'SURGEON', `Dr. ${state.user?.nom || 'Inconnu'}`);
+                state.socket.emit('surgeon:online', { userId: state.user?.id || `surgeon-${state.socket.id}` });
+
+                // ENTRÉE EN SALLE - Émettre l'événement si un patient est chargé
+                if (state.patient && !state.roomEntered) {
+                    state.socket.emit('surgeon:enter-room', {
+                        patientId: state.patient.id,
+                        timestamp: new Date().toISOString()
+                    });
+                    state.roomEntered = true;
+                    console.log('[CHIRURGIEN] Entrée en salle émise pour patient:', state.patient.id);
+                }
+            });
+
+            state.socket.on('assistant:status', (data) => {
+                console.log('[CHIRURGIEN] assistant:status reçu:', data);
+                // Synchroniser l'état assistantReady/patientConsented (toujours exécuté)
+                state.assistantReady = !!data.ready;
+                state.patientConsented = !!data.patientConsent;
+                console.log('[CHIRURGIEN] État mis à jour - assistantReady:', state.assistantReady, 'patientConsented:', state.patientConsented, 'operationStarted:', state.operationStarted);
+                updateCallButtonUI();
+
+                // Mise à jour UI uniquement si l'élément existe
+                if (assistantStatusEl) {
+                    const online = !!data?.online;
+                    assistantStatusEl.textContent = online ? 'Stable' : 'Offline';
+                    assistantStatusEl.style.color = online ? '#10b981' : '#f43f5e';
+                }
+            });
+
+            state.socket.on('assistant:online', () => {
+                if (assistantStatusEl) {
+                    assistantStatusEl.textContent = 'Stable';
+                    assistantStatusEl.style.color = '#10b981';
+                }
+            });
+
+            state.socket.on('assistant:offline', () => {
+                if (assistantStatusEl) {
+                    assistantStatusEl.textContent = 'Offline';
+                    assistantStatusEl.style.color = '#f43f5e';
+                }
+            });
+
+            state.socket.on('operation:ended', (data) => {
+                if (!state.patient || data?.patientId !== state.patient.id) return;
+                sessionStorage.removeItem(getOperationStorageKey(state.patient.id));
+                sessionStorage.removeItem('currentPatient');
+                state.operationStarted = false;
+                state.cameraConnected = false;
+                stopOperationTimer();
+                updateCallButtonUI();
+                updateVideoUI();
+
+                // Redirection différée pour permettre la visualisation du rapport
+                setTimeout(() => {
+                    window.location.href = 'dashboard.html';
+                }, 5000);
+            });
+
+            // Recevoir le rapport de session
+            state.socket.on('operation:report', (data) => {
+                console.log('[RAPPORT] Reçu:', data.report);
+                showSessionReport(data.report);
+            });
+
+            // Latency measurement
+            let pingInterval = null;
+            const LATENCY_THRESHOLD = 150;
+
+            function updateLatencyDisplay(latency) {
+                const latencyEl = document.getElementById('latency');
+                const indicatorEl = document.getElementById('latency-indicator');
+                if (!latencyEl || !indicatorEl) return;
+
+                latencyEl.textContent = `${latency} ms`;
+
+                // Color coding based on latency
+                if (latency > LATENCY_THRESHOLD) {
+                    latencyEl.className = 'font-mono text-[11px] text-rose-400';
+                    indicatorEl.className = 'h-2 w-2 rounded-full bg-rose-500';
+                } else if (latency > 100) {
+                    latencyEl.className = 'font-mono text-[11px] text-amber-400';
+                    indicatorEl.className = 'h-2 w-2 rounded-full bg-amber-500';
+                } else {
+                    latencyEl.className = 'font-mono text-[11px] text-emerald-300';
+                    indicatorEl.className = 'h-2 w-2 rounded-full bg-emerald-500';
+                }
+            }
+
+            // Start ping interval when connected
+            state.socket.on('connect', () => {
+                if (pingInterval) clearInterval(pingInterval);
+                pingInterval = setInterval(() => {
+                    if (state.socket?.connected) {
+                        state.socket.emit('ping-latency', Date.now());
+                    }
+                }, 2000);
+            });
+
+            // Handle pong response
+            state.socket.on('pong-latency', (startTime) => {
+                const latency = Date.now() - startTime;
+                updateLatencyDisplay(latency);
+
+                // Envoyer la mesure au serveur pour les métriques de session
+                state.socket.emit('latency:measurement', {
+                    latency: latency,
+                    timestamp: Date.now()
+                });
+            });
+
+            // Cleanup on disconnect
+            state.socket.on('disconnect', () => {
+                if (pingInterval) {
+                    clearInterval(pingInterval);
+                    pingInterval = null;
+                }
+                updateLatencyDisplay(0);
+            });
+        }
+
+        callBtn.addEventListener('click', () => {
+            // Le bouton sert UNIQUEMENT à démarrer l'opération réelle (caméra + intervention)
+            if (!state.operationStarted) {
+                startOperation();
+                // Après démarrage, on ne permet plus de couper la caméra sans terminer l'opération
+                return;
+            }
+            // Si déjà en opération, on ne fait rien (Drop Connection ne coupe plus la caméra seule)
+            // Pour terminer, il faut utiliser le bouton End Session
+        });
+
+        openPanel.addEventListener('click', () => {
+            panel.classList.toggle('hidden');
+            refreshIcons();
+        });
+
+        closePanel.addEventListener('click', () => {
+            panel.classList.add('hidden');
+            refreshIcons();
+        });
+
+        btnBack.addEventListener('click', () => {
+            if (!state.patient) {
+                window.location.href = 'dashboard.html';
+                return;
+            }
+
+            if (state.socket?.connected && state.roomEntered) {
+                state.socket.emit('surgeon:leave-room', {
+                    patientId: state.patient.id,
+                    timestamp: new Date().toISOString()
+                });
+            }
+
+            if (!state.operationStarted) {
+                sessionStorage.removeItem('currentPatient');
+                sessionStorage.removeItem(getOperationStorageKey(state.patient.id));
+            }
+
+            window.location.href = 'dashboard.html';
+        });
+
+        btnComplete.addEventListener('click', async () => {
+            if (!state.patient) return;
+            if (!state.operationStarted) {
+                alert('L\'intervention n\'a pas encore démarré.');
+                return;
+            }
+
+            const confirmed = confirm("Vous êtes sur le point de terminer l'intervention. Toutes les opérations seront arrêtées et l'intervention archivée. Êtes-vous sûr de vouloir continuer ?");
+            if (!confirmed) return;
+
+            // Arrêter localement la caméra et la minuterie avant de tenter l'archivage
+            stopOperationTimer();
+            stopCameraStream();
+            state.operationStarted = false;
+
+            try {
+                const response = await fetch(`${API_URL}/patients/${state.patient.id}/complete`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${sessionStorage.getItem('token')}`
+                    }
+                });
+
+                if (!response.ok) {
+                    throw new Error('Erreur archivage');
+                }
+
+                if (state.socket?.connected) {
+                    state.socket.emit('operation:end', {
+                        patientId: state.patient.id,
+                        timestamp: new Date().toISOString()
+                    });
+                } else {
+                    sessionStorage.removeItem(getOperationStorageKey(state.patient.id));
+                    sessionStorage.removeItem('currentPatient');
+                    window.location.href = 'dashboard.html';
+                }
+            } catch (error) {
+                console.error(error);
+                alert('Impossible de terminer l\'intervention pour le moment.');
+            }
+        });
+
+        if (hydratePatientContext()) {
+            initSocket();
+        }
+        refreshIcons();
+
+        // Web Serial Arduino Connection - Auto Detection
+        let arduinoPort = null;
+        let arduinoReader = null;
+        let arduinoConnected = false;
+        let autoConnectInterval = null;
+
+        const arduinoStatus = document.getElementById('arduinoStatus');
+        const arduinoStatusText = document.getElementById('arduino-status-text');
+        const arduinoStatusIndicator = document.getElementById('arduino-status-indicator');
+        const arduinoConnectionDot = document.getElementById('arduino-connection-dot');
+        const joystickDisplay = document.getElementById('joystick-display');
+
+        // Arduino servo positions (real positions from Arduino)
+        let servoPositions = {
+            base: null,
+            epaule: null,
+            coude: null,
+            poignet: null,
+            inc: null,
+            pince: null
+        };
+
+        // Update status indicator UI
+        function updateArduinoStatusUI(status, text) {
+            if (!arduinoStatusText || !arduinoConnectionDot) return;
+
+            arduinoStatusText.textContent = text;
+
+            if (status === 'connected') {
+                arduinoStatus.classList.remove('bg-rose-500');
+                arduinoStatus.classList.add('bg-emerald-500');
+                arduinoConnectionDot.className = 'h-2 w-2 rounded-full bg-emerald-500';
+                joystickDisplay.classList.remove('hidden');
+            } else if (status === 'connecting') {
+                arduinoStatus.classList.remove('bg-emerald-500');
+                arduinoStatus.classList.add('bg-amber-500');
+                arduinoConnectionDot.className = 'h-2 w-2 rounded-full bg-amber-500 animate-pulse';
+                joystickDisplay.classList.add('hidden');
+            } else {
+                // disconnected
+                arduinoStatus.classList.remove('bg-emerald-500');
+                arduinoStatus.classList.add('bg-rose-500');
+                arduinoConnectionDot.className = 'h-2 w-2 rounded-full bg-rose-500';
+                joystickDisplay.classList.add('hidden');
+                // Reset positions to --
+                servoPositions = { base: null, epaule: null, coude: null, poignet: null, inc: null, pince: null };
+                updateJoystickDisplay();
+            }
+        }
+
+        // Auto-detect and connect to Arduino
+        async function autoConnectArduino() {
+            if (!('serial' in navigator)) {
+                updateArduinoStatusUI('disconnected', 'Non supporté');
+                return;
+            }
+
+            if (arduinoConnected) return;
+
+            updateArduinoStatusUI('connecting', 'Recherche...');
+
+            try {
+                // Try to get previously authorized ports
+                const ports = await navigator.serial.getPorts();
+
+                if (ports.length > 0) {
+                    // Use the first available port (previously authorized)
+                    arduinoPort = ports[0];
+                    console.log('[ARDUINO] Port trouvé, connexion...');
+                } else {
+                    // No previously authorized ports - user needs to select once
+                    // We'll show "Cliquez pour autoriser" and wait for manual selection
+                    updateArduinoStatusUI('connecting', 'Cliquez pour autoriser');
+
+                    // Add one-time click listener for manual authorization
+                    arduinoStatusIndicator.addEventListener('click', requestPortOnce, { once: true });
+                    return;
+                }
+
+                await arduinoPort.open({ baudRate: 115200 });
+                arduinoConnected = true;
+
+                updateArduinoStatusUI('connected', 'Connecté');
+                console.log('[ARDUINO] Connecté @ 115200 baud');
+
+                // Start reading from Arduino
+                readFromArduino();
+
+                // Request initial positions
+                requestPositions();
+
+            } catch (err) {
+                console.error('[ARDUINO] Erreur connexion:', err);
+                updateArduinoStatusUI('disconnected', 'Déconnecté');
+            }
+        }
+
+        // Request port selection (manual first time)
+        async function requestPortOnce() {
+            try {
+                updateArduinoStatusUI('connecting', 'Sélection...');
+                arduinoPort = await navigator.serial.requestPort({
+                    filters: [{ usbVendorId: 0x2341 }] // Arduino vendor ID
+                });
+                await arduinoPort.open({ baudRate: 115200 });
+                arduinoConnected = true;
+
+                updateArduinoStatusUI('connected', 'Connecté');
+                readFromArduino();
+                requestPositions();
+            } catch (err) {
+                console.error('[ARDUINO] Erreur sélection:', err);
+                updateArduinoStatusUI('disconnected', 'Refusé');
+            }
+        }
+
+        // Handle disconnection
+        async function handleDisconnection() {
+            if (!arduinoConnected) return;
+
+            console.log('[ARDUINO] Déconnecté (câble retiré)');
+            arduinoConnected = false;
+
+            if (arduinoReader) {
+                try { await arduinoReader.cancel(); } catch(e) {}
+                arduinoReader = null;
+            }
+
+            if (arduinoPort) {
+                try { await arduinoPort.close(); } catch(e) {}
+                arduinoPort = null;
+            }
+
+            updateArduinoStatusUI('disconnected', 'Déconnecté');
+
+            // Try to reconnect after 2 seconds
+            setTimeout(autoConnectArduino, 2000);
+        }
+
+        // Request positions from Arduino
+        async function requestPositions() {
+            if (!arduinoConnected || !arduinoPort?.writable) return;
+            const encoder = new TextEncoder();
+            const writer = arduinoPort.writable.getWriter();
+            try {
+                await writer.write(encoder.encode('?\n')); // Request positions
+            } catch (e) {
+                console.error('[ARDUINO] Erreur requête positions:', e);
+            } finally {
+                writer.releaseLock();
+            }
+        }
+
+        // Read data from Arduino with disconnect detection
+        async function readFromArduino() {
+            if (!arduinoPort || !arduinoPort.readable) return;
+
+            const decoder = new TextDecoder();
+            arduinoReader = arduinoPort.readable.getReader();
+
+            try {
+                while (arduinoConnected) {
+                    const { value, done } = await arduinoReader.read();
+                    if (done) {
+                        console.log('[ARDUINO] Port fermé par l\'appareil');
+                        break;
+                    }
+                    if (value) {
+                        const text = decoder.decode(value);
+                        processArduinoResponse(text);
+                    }
+                }
+            } catch (err) {
+                if (err.name === 'NetworkError' || err.name === 'NotReadableError' || err.message?.includes('disconnected')) {
+                    console.log('[ARDUINO] Câble débranché détecté');
+                } else {
+                    console.error('[ARDUINO] Erreur lecture:', err);
+                }
+            } finally {
+                try { arduinoReader.releaseLock(); } catch(e) {}
+                // Handle disconnection
+                handleDisconnection();
+            }
+        }
+
+        // Process Arduino responses - positions are REAL values from Arduino
+        function processArduinoResponse(text) {
+            const lines = text.split('\n');
+            lines.forEach(line => {
+                line = line.trim();
+                if (!line) return;
+
+                // Parse position updates from Arduino (REAL positions)
+                if (line.startsWith('POS ')) {
+                    const parts = line.split(' ');
+                    if (parts.length >= 7) {
+                        servoPositions.base = parseInt(parts[1]) ?? servoPositions.base;
+                        servoPositions.epaule = parseInt(parts[2]) ?? servoPositions.epaule;
+                        servoPositions.coude = parseInt(parts[3]) ?? servoPositions.coude;
+                        servoPositions.poignet = parseInt(parts[4]) ?? servoPositions.poignet;
+                        servoPositions.inc = parseInt(parts[5]) ?? servoPositions.inc;
+                        servoPositions.pince = parseInt(parts[6]) ?? servoPositions.pince;
+                        updateJoystickDisplay();
+                    }
+                }
+                // Other responses: SYSTEM_READY, EMERGENCY_ACK, SYNC_OK, etc.
+            });
+        }
+
+        // Send command to Arduino (positions will be confirmed by Arduino response)
+        async function sendToArduino(command, value) {
+            if (!arduinoConnected || !arduinoPort || !arduinoPort.writable) return;
+
+            const encoder = new TextEncoder();
+            const writer = arduinoPort.writable.getWriter();
+
+            try {
+                const cmdString = command + value + '\n';
+                await writer.write(encoder.encode(cmdString));
+                // Arduino will send back POS updates - we don't update UI here
+                // We wait for the real positions from Arduino
+            } catch (err) {
+                console.error('[ARDUINO] Erreur envoi:', err);
+                if (err.name === 'NetworkError' || err.message?.includes('disconnected')) {
+                    handleDisconnection();
+                }
+            } finally {
+                try { writer.releaseLock(); } catch(e) {}
+            }
+        }
+
+        // Send emergency stop
+        async function sendEmergencyStop() {
+            if (!arduinoConnected) return;
+            const encoder = new TextEncoder();
+            const writer = arduinoPort.writable.getWriter();
+            try {
+                await writer.write(encoder.encode('A\n'));
+            } catch (err) {
+                console.error('[ARDUINO] Erreur emergency:', err);
+            } finally {
+                try { writer.releaseLock(); } catch(e) {}
+            }
+        }
+
+        // Send sync command
+        async function sendSync() {
+            if (!arduinoConnected) return;
+            const encoder = new TextEncoder();
+            const writer = arduinoPort.writable.getWriter();
+            try {
+                await writer.write(encoder.encode('S\n'));
+            } catch (err) {
+                console.error('[ARDUINO] Erreur sync:', err);
+            } finally {
+                try { writer.releaseLock(); } catch(e) {}
+            }
+        }
+
+        // Update joystick command display (shows REAL positions from Arduino)
+        function updateJoystickDisplay() {
+            const fmt = (val) => val !== null ? val : '--';
+            document.getElementById('cmd-base').textContent = fmt(servoPositions.base);
+            document.getElementById('cmd-epaule').textContent = fmt(servoPositions.epaule);
+            document.getElementById('cmd-coude').textContent = fmt(servoPositions.coude);
+            document.getElementById('cmd-poignet').textContent = fmt(servoPositions.poignet);
+            document.getElementById('cmd-inc').textContent = fmt(servoPositions.inc);
+            document.getElementById('cmd-pince').textContent = fmt(servoPositions.pince);
+        }
+
+        // Throttle function for commands
+        function throttle(func, limit) {
+            let inThrottle;
+            return function(...args) {
+                if (!inThrottle) {
+                    func.apply(this, args);
+                    inThrottle = true;
+                    setTimeout(() => inThrottle = false, limit);
+                }
+            }
+        }
+
+        // Send position updates with throttling (50ms = 20Hz max)
+        const throttledSendBase = throttle((val) => sendToArduino('B', Math.round(val)), 50);
+        const throttledSendEpaule = throttle((val) => sendToArduino('E', Math.round(val)), 50);
+        const throttledSendCoude = throttle((val) => sendToArduino('C', Math.round(val)), 50);
+        const throttledSendPoignet = throttle((val) => sendToArduino('P', Math.round(val)), 50);
+        const throttledSendInc = throttle((val) => sendToArduino('I', Math.round(val)), 50);
+        const throttledSendPince = throttle((val) => sendToArduino('G', Math.round(val)), 50);
+
+        // Expose functions globally for joystick integration
+        window.arduinoController = {
+            sendCommand: sendToArduino,
+            sendEmergency: sendEmergencyStop,
+            sendSync: sendSync,
+            isConnected: () => arduinoConnected,
+            sendBase: throttledSendBase,
+            sendEpaule: throttledSendEpaule,
+            sendCoude: throttledSendCoude,
+            sendPoignet: throttledSendPoignet,
+            sendInc: throttledSendInc,
+            sendPince: throttledSendPince,
+            sendSpeed: (val) => sendToArduino('V', Math.round(val))
+        };
+
+        // Motor speed control - Secure modal
+        const speedControlBtn = document.getElementById('speed-control-btn');
+        const speedModal = document.getElementById('speed-modal');
+        const closeSpeedModal = document.getElementById('close-speed-modal');
+        const applySpeedBtn = document.getElementById('apply-speed-btn');
+        const motorSpeedSlider = document.getElementById('motor-speed-slider');
+        const speedModalValue = document.getElementById('speed-modal-value');
+        const motorSpeedBadge = document.getElementById('motor-speed-badge');
+
+        let currentSpeed = 12;
+
+        // Open speed modal
+        if (speedControlBtn && speedModal) {
+            speedControlBtn.addEventListener('click', () => {
+                speedModal.classList.remove('hidden');
+                lucide.createIcons();
+            });
+        }
+
+        // Close speed modal
+        function closeSpeedModalFn() {
+            speedModal.classList.add('hidden');
+        }
+
+        if (closeSpeedModal) {
+            closeSpeedModal.addEventListener('click', closeSpeedModalFn);
+        }
+
+        // Close on backdrop click
+        if (speedModal) {
+            speedModal.addEventListener('click', (e) => {
+                if (e.target === speedModal) closeSpeedModalFn();
+            });
+        }
+
+        // Update slider display in modal
+        if (motorSpeedSlider && speedModalValue) {
+            motorSpeedSlider.addEventListener('input', (e) => {
+                const speed = parseInt(e.target.value);
+                speedModalValue.textContent = speed;
+            });
+        }
+
+        // Apply speed and close
+        if (applySpeedBtn && motorSpeedSlider) {
+            applySpeedBtn.addEventListener('click', () => {
+                currentSpeed = parseInt(motorSpeedSlider.value);
+
+                // Update badge in footer
+                if (motorSpeedBadge) {
+                    motorSpeedBadge.textContent = currentSpeed;
+                }
+
+                // Send to Arduino if connected
+                if (window.arduinoController?.isConnected?.()) {
+                    window.arduinoController.sendSpeed(currentSpeed);
+                    console.log('[ARDUINO] Vitesse moteurs changée:', currentSpeed);
+                }
+
+                closeSpeedModalFn();
+            });
+        }
+
+        // Chat functionality
+        const chatMessages = document.getElementById('chat-messages');
+        const chatInput = document.getElementById('chat-input');
+        const chatSendBtn = document.getElementById('chat-send-btn');
+        const chatVoiceBtn = document.getElementById('chat-voice-btn');
+        const chatFileBtn = document.getElementById('chat-file-btn');
+        const chatFileInput = document.getElementById('chat-file-input');
+
+        function addChatMessage(text, type = 'sent', isFile = false, fileName = '') {
+            if (!chatMessages) return;
+
+            const msgDiv = document.createElement('div');
+            msgDiv.className = `flex ${type === 'sent' ? 'justify-end' : 'justify-start'}`;
+
+            const bubble = document.createElement('div');
+            bubble.className = `max-w-[80%] px-2 py-1 text-[11px] ${type === 'sent' ? 'bg-blue-900/50 text-blue-100 border border-blue-800' : 'bg-slate-800 text-slate-200 border border-slate-700'} rounded-none`;
+
+            if (isFile) {
+                bubble.innerHTML = `<i data-lucide="file" class="inline h-3 w-3 mr-1"></i> ${fileName}`;
+            } else {
+                bubble.textContent = text;
+            }
+
+            const time = document.createElement('div');
+            time.className = 'text-[9px] text-slate-500 mt-0.5';
+            time.textContent = new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+
+            const wrapper = document.createElement('div');
+            wrapper.appendChild(bubble);
+            wrapper.appendChild(time);
+
+            msgDiv.appendChild(wrapper);
+            chatMessages.appendChild(msgDiv);
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+            lucide.createIcons();
+        }
+
+        function sendChatMessage() {
+            const text = chatInput?.value?.trim();
+            if (!text) return;
+
+            addChatMessage(text, 'sent');
+            chatInput.value = '';
+
+            // Send via socket to assistant
+            if (state.socket) {
+                state.socket.emit('chat:message', {
+                    from: 'surgeon',
+                    text: text,
+                    timestamp: new Date().toISOString()
+                });
+            }
+        }
+
+        if (chatSendBtn && chatInput) {
+            chatSendBtn.addEventListener('click', sendChatMessage);
+            chatInput.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') sendChatMessage();
+            });
+        }
+
+        // Voice message (simulated - would use WebRTC in full impl)
+        if (chatVoiceBtn) {
+            chatVoiceBtn.addEventListener('click', () => {
+                addChatMessage('🎤 Message vocal (3s)...', 'sent');
+                if (state.socket) {
+                    state.socket.emit('chat:voice', { from: 'surgeon', duration: 3 });
+                }
+            });
+        }
+
+        // File sharing
+        if (chatFileBtn && chatFileInput) {
+            chatFileBtn.addEventListener('click', () => chatFileInput.click());
+            chatFileInput.addEventListener('change', (e) => {
+                const file = e.target.files[0];
+                if (file) {
+                    addChatMessage('', 'sent', true, file.name);
+                    if (state.socket) {
+                        state.socket.emit('chat:file', { from: 'surgeon', fileName: file.name, fileSize: file.size });
+                    }
+                }
+                chatFileInput.value = '';
+            });
+        }
+
+        // ============================================================
+        // FLOATING CHAT MODAL SYSTEM
+        // ============================================================
+
+        const ChatModal = {
+            modal: document.getElementById('chat-modal'),
+            header: document.getElementById('chat-modal-header'),
+            content: document.getElementById('chat-modal-content'),
+            minimized: document.getElementById('chat-modal-minimized'),
+            messages: document.getElementById('chat-modal-messages'),
+            input: document.getElementById('chat-modal-input'),
+            sendBtn: document.getElementById('chat-modal-send'),
+            voiceBtn: document.getElementById('chat-modal-voice'),
+            fileBtn: document.getElementById('chat-modal-file'),
+            fileInput: document.getElementById('chat-modal-file-input'),
+            closeBtn: document.getElementById('chat-close-btn'),
+            minimizeBtn: document.getElementById('chat-minimize-btn'),
+            restoreBtn: document.getElementById('chat-restore-btn'),
+            openBtn: document.getElementById('chat-modal-btn'),
+            unreadBadge: document.getElementById('chat-unread-badge'),
+
+            isOpen: false,
+            isMinimized: false,
+            unreadCount: 0,
+            isDragging: false,
+            dragOffset: { x: 0, y: 0 },
+
+            init() {
+                if (!this.modal) return;
+
+                // Open button
+                this.openBtn?.addEventListener('click', () => this.open());
+
+                // Close button
+                this.closeBtn?.addEventListener('click', () => this.close());
+
+                // Minimize/Restore
+                this.minimizeBtn?.addEventListener('click', () => this.minimize());
+                this.restoreBtn?.addEventListener('click', () => this.restore());
+
+                // Send message
+                this.sendBtn?.addEventListener('click', () => this.sendMessage());
+                this.input?.addEventListener('keypress', (e) => {
+                    if (e.key === 'Enter') this.sendMessage();
+                });
+
+                // Voice message
+                this.voiceBtn?.addEventListener('click', () => this.sendVoice());
+
+                // File sharing
+                this.fileBtn?.addEventListener('click', () => this.fileInput?.click());
+                this.fileInput?.addEventListener('change', (e) => this.sendFile(e));
+
+                // Drag functionality
+                this.initDrag();
+
+                console.log('[CHAT MODAL] Initialized');
+            },
+
+            initDrag() {
+                if (!this.header || !this.modal) return;
+
+                this.header.addEventListener('mousedown', (e) => {
+                    this.isDragging = true;
+                    const rect = this.modal.getBoundingClientRect();
+                    this.dragOffset.x = e.clientX - rect.left;
+                    this.dragOffset.y = e.clientY - rect.top;
+                    this.modal.style.transition = 'none';
+                });
+
+                document.addEventListener('mousemove', (e) => {
+                    if (!this.isDragging) return;
+
+                    const x = e.clientX - this.dragOffset.x;
+                    const y = e.clientY - this.dragOffset.y;
+
+                    // Keep within viewport
+                    const maxX = window.innerWidth - this.modal.offsetWidth;
+                    const maxY = window.innerHeight - this.modal.offsetHeight;
+
+                    this.modal.style.left = Math.max(0, Math.min(x, maxX)) + 'px';
+                    this.modal.style.top = Math.max(0, Math.min(y, maxY)) + 'px';
+                    this.modal.style.right = 'auto';
+                    this.modal.style.bottom = 'auto';
+                });
+
+                document.addEventListener('mouseup', () => {
+                    if (this.isDragging) {
+                        this.isDragging = false;
+                        this.modal.style.transition = '';
+                    }
+                });
+            },
+
+            open() {
+                if (!this.modal) return;
+                this.modal.classList.remove('hidden');
+                this.isOpen = true;
+                this.unreadCount = 0;
+                this.updateUnreadBadge();
+                this.input?.focus();
+
+                // Position par défaut si pas encore positionné
+                if (!this.modal.style.left) {
+                    this.modal.style.right = '20px';
+                    this.modal.style.bottom = '20px';
+                }
+            },
+
+            close() {
+                if (!this.modal) return;
+                this.modal.classList.add('hidden');
+                this.isOpen = false;
+                this.isMinimized = false;
+                this.content?.classList.remove('hidden');
+                this.minimized?.classList.add('hidden');
+            },
+
+            minimize() {
+                if (!this.content || !this.minimized) return;
+                this.content.classList.add('hidden');
+                this.minimized.classList.remove('hidden');
+                this.isMinimized = true;
+            },
+
+            restore() {
+                if (!this.content || !this.minimized) return;
+                this.content.classList.remove('hidden');
+                this.minimized.classList.add('hidden');
+                this.isMinimized = false;
+                this.unreadCount = 0;
+                this.updateUnreadBadge();
+            },
+
+            addMessage(text, type = 'sent', isFile = false, fileName = '') {
+                if (!this.messages) return;
+
+                const msgDiv = document.createElement('div');
+                msgDiv.className = `flex ${type === 'sent' ? 'justify-end' : type === 'system' ? 'justify-center' : 'justify-start'}`;
+
+                const bubble = document.createElement('div');
+
+                if (type === 'system') {
+                    bubble.className = 'px-2 py-1 text-[10px] text-slate-500 italic';
+                    bubble.textContent = text;
+                } else {
+                    bubble.className = `max-w-[80%] px-3 py-2 text-[12px] ${type === 'sent' ? 'bg-blue-900/50 text-blue-100 border border-blue-800' : 'bg-slate-800 text-slate-200 border border-slate-700'} rounded-none`;
+
+                    if (isFile) {
+                        bubble.innerHTML = `<i data-lucide="file" class="inline h-3 w-3 mr-1"></i> ${fileName}`;
+                    } else {
+                        bubble.textContent = text;
+                    }
+
+                    const time = document.createElement('div');
+                    time.className = 'text-[9px] text-slate-500 mt-0.5 text-right';
+                    time.textContent = new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+                    bubble.appendChild(time);
+                }
+
+                msgDiv.appendChild(bubble);
+                this.messages.appendChild(msgDiv);
+                this.messages.scrollTop = this.messages.scrollHeight;
+                lucide.createIcons();
+
+                // Update unread if received while closed/minimized
+                if ((type === 'received') && (!this.isOpen || this.isMinimized)) {
+                    this.unreadCount++;
+                    this.updateUnreadBadge();
+                }
+            },
+
+            updateUnreadBadge() {
+                if (!this.unreadBadge) return;
+                if (this.unreadCount > 0) {
+                    this.unreadBadge.textContent = this.unreadCount > 99 ? '99+' : this.unreadCount;
+                    this.unreadBadge.classList.remove('hidden');
+                } else {
+                    this.unreadBadge.classList.add('hidden');
+                }
+            },
+
+            sendMessage() {
+                const text = this.input?.value?.trim();
+                if (!text) return;
+
+                this.addMessage(text, 'sent');
+                if (this.input) this.input.value = '';
+
+                // Send via socket
+                if (state.socket) {
+                    state.socket.emit('chat:message', {
+                        from: 'surgeon',
+                        text: text,
+                        timestamp: new Date().toISOString()
+                    });
+                }
+            },
+
+            sendVoice() {
+                this.addMessage('🎤 Message vocal (3s)...', 'sent');
+                if (state.socket) {
+                    state.socket.emit('chat:voice', { from: 'surgeon', duration: 3 });
+                }
+            },
+
+            sendFile(e) {
+                const file = e.target.files[0];
+                if (!file) return;
+
+                this.addMessage('', 'sent', true, file.name);
+                if (state.socket) {
+                    state.socket.emit('chat:file', {
+                        from: 'surgeon',
+                        fileName: file.name,
+                        fileSize: file.size
+                    });
+                }
+                e.target.value = '';
+            }
+        };
+
+        // Initialize chat modal
+        ChatModal.init();
+
+        // Listen for incoming messages via Socket.IO
+        function setupChatSocketListeners() {
+            if (!state.socket) return;
+
+            state.socket.on('chat:message', (data) => {
+                if (data.from === 'assistant') {
+                    ChatModal.addMessage(data.text, 'received');
+                }
+            });
+
+            state.socket.on('chat:voice', (data) => {
+                if (data.from === 'assistant') {
+                    ChatModal.addMessage('🎤 Message vocal reçu', 'received');
+                }
+            });
+
+            state.socket.on('chat:file', (data) => {
+                if (data.from === 'assistant') {
+                    ChatModal.addMessage('', 'received', true, data.fileName);
+                }
+            });
+
+            // System messages
+            state.socket.on('assistant:online', () => {
+                ChatModal.addMessage('Assistant connecté', 'system');
+            });
+
+            state.socket.on('assistant:offline', () => {
+                ChatModal.addMessage('Assistant déconnecté', 'system');
+            });
+        }
+
+        // ============================================================
+        // RAPPORT DE SESSION - AFFICHAGE
+        // ============================================================
+
+        function showSessionReport(report) {
+            // Créer la modal si elle n'existe pas
+            let modal = document.getElementById('session-report-modal');
+            if (!modal) {
+                modal = document.createElement('div');
+                modal.id = 'session-report-modal';
+                modal.className = 'fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4';
+                modal.innerHTML = `
+                    <div class="w-full max-w-3xl max-h-[90vh] overflow-y-auto border border-slate-600 bg-slate-950 shadow-2xl">
+                        <div class="border-b border-slate-800 bg-slate-900 px-6 py-4 flex items-center justify-between">
+                            <h2 class="text-lg font-bold text-slate-200 flex items-center gap-2">
+                                <i data-lucide="file-text" class="h-5 w-5 text-amber-400"></i>
+                                RAPPORT DE SESSION - TÉLÉCHIRURGIE 5G
+                            </h2>
+                            <button onclick="closeSessionReport()" class="text-slate-400 hover:text-slate-200">
+                                <i data-lucide="x" class="h-5 w-5"></i>
+                            </button>
+                        </div>
+                        <div id="session-report-content" class="p-6 space-y-6"></div>
+                        <div class="border-t border-slate-800 bg-slate-900 px-6 py-4 flex justify-end gap-3">
+                            <button onclick="downloadSessionReport()" class="border border-amber-700 bg-amber-900/30 px-4 py-2 text-sm font-medium text-amber-300 hover:bg-amber-900/50 flex items-center gap-2">
+                                <i data-lucide="download" class="h-4 w-4"></i>
+                                Télécharger JSON
+                            </button>
+                            <button onclick="closeSessionReport()" class="border border-slate-700 bg-slate-800 px-4 py-2 text-sm font-medium text-slate-300 hover:bg-slate-700">
+                                Fermer
+                            </button>
+                        </div>
+                    </div>
+                `;
+                document.body.appendChild(modal);
+            }
+
+            // Générer le contenu du rapport
+            const content = document.getElementById('session-report-content');
+            content.innerHTML = generateReportHTML(report);
+
+            // Stocker le rapport pour le téléchargement
+            window.currentSessionReport = report;
+
+            // Afficher la modal
+            modal.classList.remove('hidden');
+            lucide.createIcons();
+        }
+
+        function generateReportHTML(report) {
+            const arduinoStatus = report.arduino.disconnectionsCount === 0 ? 'text-emerald-400' :
+                                  report.arduino.disconnectionsCount < 3 ? 'text-amber-400' : 'text-rose-400';
+
+            return `
+                <!-- ID & Date -->
+                <div class="border border-slate-800 bg-slate-900/50 p-4">
+                    <div class="grid grid-cols-2 gap-4 text-sm">
+                        <div>
+                            <span class="text-slate-500">ID Opération:</span>
+                            <span class="text-slate-200 font-mono ml-2">#${report.sessionId}</span>
+                        </div>
+                        <div>
+                            <span class="text-slate-500">Date:</span>
+                            <span class="text-slate-200 ml-2">${report.date}</span>
+                        </div>
+                        <div>
+                            <span class="text-slate-500">Patient ID:</span>
+                            <span class="text-slate-200 font-mono ml-2">${report.patientId || 'N/A'}</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 1. Chronologie -->
+                <div>
+                    <h3 class="text-sm font-bold text-amber-400 uppercase tracking-wider mb-3 flex items-center gap-2">
+                        <i data-lucide="clock" class="h-4 w-4"></i>
+                        1. Chronologie de l'Intervention
+                    </h3>
+                    <div class="grid grid-cols-2 gap-4 text-sm">
+                        <div class="border border-slate-800 bg-slate-900/30 p-3">
+                            <span class="text-slate-500 block text-xs">Heure de Début</span>
+                            <span class="text-slate-200 font-mono">${report.startTime}</span>
+                        </div>
+                        <div class="border border-slate-800 bg-slate-900/30 p-3">
+                            <span class="text-slate-500 block text-xs">Heure de Fin</span>
+                            <span class="text-slate-200 font-mono">${report.endTime}</span>
+                        </div>
+                        <div class="border border-slate-800 bg-slate-900/30 p-3">
+                            <span class="text-slate-500 block text-xs">Durée Totale</span>
+                            <span class="text-slate-200 font-mono font-bold">${report.totalDuration}</span>
+                        </div>
+                        <div class="border border-slate-800 bg-slate-900/30 p-3">
+                            <span class="text-slate-500 block text-xs">Temps Chirurgical Effectif</span>
+                            <span class="text-emerald-400 font-mono font-bold">${report.effectiveDuration}</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 2. Arduino -->
+                <div>
+                    <h3 class="text-sm font-bold text-amber-400 uppercase tracking-wider mb-3 flex items-center gap-2">
+                        <i data-lucide="cpu" class="h-4 w-4"></i>
+                        2. État de l'Arduino (Robot)
+                    </h3>
+                    <div class="border border-slate-800 bg-slate-900/30 p-4">
+                        <div class="flex items-center gap-4 mb-4">
+                            <div class="text-3xl font-bold ${arduinoStatus}">${report.arduino.disconnectionsCount}</div>
+                            <div class="text-sm text-slate-400">déconnexion${report.arduino.disconnectionsCount > 1 ? 's' : ''}</div>
+                            <div class="ml-auto text-right">
+                                <div class="text-xs text-slate-500">Durée totale d'indisponibilité</div>
+                                <div class="text-slate-200 font-mono">${report.arduino.totalDowntime}</div>
+                            </div>
+                        </div>
+                        ${report.arduino.disconnections.length > 0 ? `
+                        <div class="border-t border-slate-800 pt-3">
+                            <span class="text-xs text-slate-500 uppercase">Détails des coupures:</span>
+                            <ul class="mt-2 space-y-2 text-sm">
+                                ${report.arduino.disconnections.map((d, i) => `
+                                    <li class="flex items-start gap-2 text-slate-300">
+                                        <span class="text-slate-500">#${i + 1}</span>
+                                        <span>à ${d.time} pendant ${d.duration}</span>
+                                        <span class="text-slate-500">(${d.reason})</span>
+                                    </li>
+                                `).join('')}
+                            </ul>
+                        </div>
+                        ` : '<div class="text-emerald-400 text-sm"><i data-lucide="check-circle" class="inline h-4 w-4 mr-1"></i> Aucune déconnexion pendant l\'opération</div>'}
+                    </div>
+                </div>
+
+                <!-- 3. Assistant -->
+                <div>
+                    <h3 class="text-sm font-bold text-amber-400 uppercase tracking-wider mb-3 flex items-center gap-2">
+                        <i data-lucide="user" class="h-4 w-4"></i>
+                        3. Session de l'Assistant
+                    </h3>
+                    <div class="border border-slate-800 bg-slate-900/30 p-4">
+                        <div class="flex items-center gap-4 mb-4">
+                            <div class="text-3xl font-bold ${report.assistant.interruptionsCount === 0 ? 'text-emerald-400' : 'text-amber-400'}">${report.assistant.interruptionsCount}</div>
+                            <div class="text-sm text-slate-400">interruption${report.assistant.interruptionsCount > 1 ? 's' : ''}</div>
+                            <div class="ml-auto text-right">
+                                <div class="text-xs text-slate-500">Durée totale d'absence</div>
+                                <div class="text-slate-200 font-mono">${report.assistant.totalDowntime}</div>
+                            </div>
+                        </div>
+                        ${report.assistant.interruptions.length > 0 ? `
+                        <div class="border-t border-slate-800 pt-3">
+                            <ul class="space-y-2 text-sm">
+                                ${report.assistant.interruptions.map(i => `
+                                    <li class="flex items-start gap-2 text-slate-300">
+                                        <span class="text-slate-500">${i.time}</span>
+                                        <span>pendant ${i.duration}</span>
+                                        <span class="text-slate-500">(${i.reason})</span>
+                                    </li>
+                                `).join('')}
+                            </ul>
+                        </div>
+                        ` : '<div class="text-emerald-400 text-sm"><i data-lucide="check-circle" class="inline h-4 w-4 mr-1"></i> Assistant connecté en permanence</div>'}
+                    </div>
+                </div>
+
+                <!-- 4. Réseau -->
+                <div>
+                    <h3 class="text-sm font-bold text-amber-400 uppercase tracking-wider mb-3 flex items-center gap-2">
+                        <i data-lucide="wifi" class="h-4 w-4"></i>
+                        4. Métriques de Performance Réseau
+                    </h3>
+                    <div class="grid grid-cols-4 gap-3 mb-4">
+                        <div class="border border-slate-800 bg-slate-900/30 p-3 text-center">
+                            <div class="text-xs text-slate-500">Latence Moyenne</div>
+                            <div class="text-xl font-bold text-slate-200">${report.network.avgLatency} <span class="text-xs font-normal">ms</span></div>
+                        </div>
+                        <div class="border border-slate-800 bg-slate-900/30 p-3 text-center">
+                            <div class="text-xs text-slate-500">Pic Maximum</div>
+                            <div class="text-xl font-bold ${report.network.maxLatencyRecorded > 100 ? 'text-rose-400' : 'text-slate-200'}">${report.network.maxLatencyRecorded} <span class="text-xs font-normal">ms</span></div>
+                        </div>
+                        <div class="border border-slate-800 bg-slate-900/30 p-3 text-center">
+                            <div class="text-xs text-slate-500">Événements Critiques</div>
+                            <div class="text-xl font-bold ${report.network.criticalEventsCount > 0 ? 'text-amber-400' : 'text-emerald-400'}">${report.network.criticalEventsCount}</div>
+                        </div>
+                        <div class="border border-slate-800 bg-slate-900/30 p-3 text-center">
+                            <div class="text-xs text-slate-500">Stabilité 5G</div>
+                            <div class="text-xl font-bold text-emerald-400">${report.network.stability}%</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 5. Blockchain -->
+                <div>
+                    <h3 class="text-sm font-bold text-amber-400 uppercase tracking-wider mb-3 flex items-center gap-2">
+                        <i data-lucide="shield" class="h-4 w-4"></i>
+                        5. Sécurité & Intégrité (Blockchain)
+                    </h3>
+                    <div class="border border-slate-800 bg-slate-900/30 p-4">
+                        <div class="flex items-center gap-4">
+                            <div class="text-3xl font-bold text-emerald-400">${report.blockchain.blocksGenerated}</div>
+                            <div class="text-sm text-slate-400">blocs générés</div>
+                            <div class="ml-auto flex items-center gap-2 text-emerald-400">
+                                <i data-lucide="check-circle" class="h-5 w-5"></i>
+                                <span class="font-bold">${report.blockchain.integrity}</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Observations -->
+                <div class="border-l-4 border-amber-600 bg-amber-900/20 p-4">
+                    <h4 class="text-sm font-bold text-amber-400 mb-2">⚠️ Observations du Système</h4>
+                    <p class="text-sm text-slate-300">
+                        L'opération s'est déroulée ${report.arduino.disconnectionsCount === 0 && report.assistant.interruptionsCount === 0 ? 'sans incident.' :
+                        report.arduino.disconnectionsCount > 0 ? `avec ${report.arduino.disconnectionsCount} micro-coupure${report.arduino.disconnectionsCount > 1 ? 's' : ''} de l'Arduino. Le protocole de sécurité a figé le robot instantanément à chaque perte de signal.` :
+                        `avec ${report.assistant.interruptionsCount} interruption${report.assistant.interruptionsCount > 1 ? 's' : ''} de la session assistant.`}
+                    </p>
+                </div>
+            `;
+        }
+
+        function closeSessionReport() {
+            const modal = document.getElementById('session-report-modal');
+            if (modal) {
+                modal.classList.add('hidden');
+            }
+        }
+
+        function downloadSessionReport() {
+            if (!window.currentSessionReport) return;
+
+            const dataStr = JSON.stringify(window.currentSessionReport, null, 2);
+            const blob = new Blob([dataStr], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `rapport-session-${window.currentSessionReport.sessionId}.json`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }
+
+        // Setup listeners when socket connects
+        const originalSocketConnect = state.socket?.on?.bind(state.socket);
+        if (state.socket) {
+            setupChatSocketListeners();
+        }
+
+        // Start auto-detection on page load
+        setTimeout(autoConnectArduino, 1000);
+    </script>
+</body>
+</html>

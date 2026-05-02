@@ -1,0 +1,749 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard · Centre de Téléchirurgie</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400;14..32,500;14..32,600;14..32,700&family=Helvetica+Neue:wght@400;500;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --orange-500: #ff7900;
+            --orange-600: #e56a00;
+            --orange-700: #cc5a00;
+            --emerald-500: #10b981;
+            --emerald-600: #059669;
+            --rose-500: #f43f5e;
+            --amber-500: #f59e0b;
+            --black: #000000;
+            --white: #ffffff;
+            --gray-50: #f8f9fa;
+            --gray-100: #f0f0f0;
+            --gray-200: #e0e0e0;
+            --gray-300: #cccccc;
+            --gray-400: #999999;
+            --gray-500: #666666;
+            --gray-600: #333333;
+            --gray-700: #1a1a1a;
+            --indigo-dark: #1e1b4b;
+            --indigo-mid: #312e81;
+            --radius-none: 0px;
+            --font-sans: 'Helvetica Neue', 'Inter', system-ui, -apple-system, sans-serif;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: var(--font-sans);
+            background: var(--gray-50);
+            color: var(--black);
+            min-height: 100vh;
+            display: flex;
+        }
+
+        /* === SIDEBAR === */
+        .sidebar {
+            width: 280px;
+            background: var(--indigo-dark);
+            color: white;
+            display: flex;
+            flex-direction: column;
+            min-height: 100vh;
+            box-shadow: 2px 0 10px rgba(0,0,0,0.1); /* conservée */
+        }
+
+        .sidebar-header {
+            padding: 30px 25px;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+        }
+
+        .sidebar-logo {
+            font-size: 1.3rem;
+            font-weight: 600;
+            letter-spacing: 1px;
+            line-height: 1.4;
+            text-transform: uppercase;
+        }
+
+        .sidebar-logo span {
+            display: block;
+            font-size: 0.9rem;
+            font-weight: 400;
+            opacity: 0.8;
+            margin-top: 5px;
+            color: var(--orange-500);
+        }
+
+        .sidebar-nav {
+            flex: 1;
+            padding: 20px 0;
+        }
+
+        .nav-item {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            padding: 15px 25px;
+            cursor: pointer;
+            transition: all 0.15s ease;
+            border-left: 4px solid transparent;
+            font-weight: 500;
+        }
+
+        .nav-item:hover {
+            background: rgba(255,255,255,0.05);
+        }
+
+        .nav-item.active {
+            background: rgba(255,121,0,0.15);
+            border-left-color: var(--orange-500);
+        }
+
+        .nav-icon {
+            font-size: 1.3rem;
+        }
+
+        .nav-text {
+            font-size: 0.95rem;
+        }
+
+        .sidebar-footer {
+            padding: 20px 25px;
+            border-top: 1px solid rgba(255,255,255,0.1);
+        }
+
+        .user-profile {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 15px;
+        }
+
+        .user-avatar {
+            width: 45px;
+            height: 45px;
+            background: var(--orange-500);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.3rem;
+            color: white;
+            border-radius: 0; /* supprimé */
+        }
+
+        .user-name {
+            font-weight: 600;
+            font-size: 0.95rem;
+        }
+
+        .user-role {
+            font-size: 0.8rem;
+            opacity: 0.7;
+        }
+
+        .btn-logout {
+            width: 100%;
+            padding: 12px;
+            background: transparent;
+            border: 1px solid rgba(255,255,255,0.3);
+            color: #fca5a5;
+            cursor: pointer;
+            font-size: 0.9rem;
+            font-weight: 500;
+            transition: background 0.15s;
+            border-radius: 0;
+        }
+
+        .btn-logout:hover {
+            background: rgba(255,0,0,0.1);
+            color: #fecaca;
+        }
+
+        /* === MAIN CONTENT === */
+        .main-content {
+            flex: 1;
+            padding: 30px 40px;
+            overflow-y: auto;
+        }
+
+        .page-header {
+            margin-bottom: 30px;
+        }
+
+        .page-header h1 {
+            font-size: 1.8rem;
+            color: var(--black);
+            font-weight: 600;
+            margin-bottom: 8px;
+        }
+
+        .page-header p {
+            color: var(--gray-500);
+            font-size: 0.95rem;
+        }
+
+        /* Search Bar */
+        .search-container {
+            margin-bottom: 25px;
+            display: flex;
+            gap: 15px;
+            align-items: center;
+        }
+
+        .search-box {
+            flex: 1;
+            padding: 12px 20px;
+            border: 2px solid var(--black);
+            font-size: 0.95rem;
+            background: white;
+            border-radius: 0;
+            font-family: var(--font-sans);
+        }
+
+        .search-box:focus {
+            outline: none;
+            border-color: var(--orange-500);
+        }
+
+        /* Content Sections */
+        .content-section {
+            display: none;
+        }
+
+        .content-section.active {
+            display: block;
+        }
+
+        /* Cards */
+        .card {
+            background: white;
+            border-radius: 0;
+            padding: 25px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.05); /* conservée */
+            margin-bottom: 25px;
+            border: 1px solid var(--gray-200);
+        }
+
+        .card-header {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 20px;
+            padding-bottom: 15px;
+            border-bottom: 2px solid var(--black);
+        }
+
+        .card-header h2 {
+            font-size: 1.2rem;
+            color: var(--black);
+            font-weight: 600;
+        }
+
+        .card-icon {
+            font-size: 1.4rem;
+        }
+
+        /* Tables */
+        .data-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.95rem;
+        }
+
+        .data-table th {
+            background: var(--gray-50);
+            color: var(--black);
+            padding: 15px;
+            text-align: left;
+            font-weight: 600;
+            font-size: 0.8rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            border-bottom: 2px solid var(--black);
+        }
+
+        .data-table td {
+            padding: 15px;
+            border-bottom: 1px solid var(--gray-200);
+            color: var(--gray-700);
+        }
+
+        .data-table tr:hover {
+            background: var(--gray-50);
+        }
+
+        /* Status Badges */
+        .status-badge {
+            padding: 6px 14px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            border: 1px solid;
+            display: inline-block;
+            border-radius: 0;
+        }
+
+        .status-ready {
+            background: rgba(16,185,129,0.12);
+            color: var(--emerald-600);
+            border-color: var(--emerald-500);
+        }
+
+        .status-waiting {
+            background: rgba(245,158,11,0.12);
+            color: var(--amber-500);
+            border-color: var(--amber-500);
+        }
+
+        .status-preparing {
+            background: rgba(79,70,229,0.12);
+            color: var(--indigo-600);
+            border-color: var(--indigo-600);
+        }
+
+        .status-operating {
+            background: rgba(244,63,94,0.12);
+            color: var(--rose-500);
+            border-color: var(--rose-500);
+            animation: pulse 2s infinite;
+        }
+
+        .status-critical {
+            background: rgba(244,63,94,0.18);
+            color: var(--rose-500);
+            border-color: var(--rose-500);
+        }
+
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.7; }
+            100% { opacity: 1; }
+        }
+
+        /* Buttons */
+        .btn-enter {
+            background: var(--gray-200);
+            color: var(--gray-500);
+            border: 1px solid var(--gray-300);
+            padding: 10px 20px;
+            cursor: not-allowed;
+            font-weight: 600;
+            font-size: 0.85rem;
+            transition: all 0.15s;
+            border-radius: 0;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .btn-enter.active {
+            background: var(--emerald-500);
+            border-color: var(--emerald-500);
+            color: white;
+            cursor: pointer;
+        }
+
+        .btn-enter.active:hover {
+            background: var(--emerald-600);
+        }
+
+        .btn-enter.btn-disabled {
+            background: var(--gray-200);
+            color: var(--gray-400);
+            border-color: var(--gray-300);
+            cursor: not-allowed;
+        }
+
+        .btn-download-small {
+            background: var(--gray-50);
+            border: 1px solid var(--gray-300);
+            padding: 8px 12px;
+            cursor: pointer;
+            font-size: 0.8rem;
+            font-weight: 500;
+            border-radius: 0;
+            transition: background 0.15s;
+        }
+
+        .btn-download-small:hover {
+            background: var(--gray-200);
+            border-color: var(--black);
+        }
+
+        /* Monitoring Bar */
+        .monitoring-bar {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 1.5rem;
+            margin-bottom: 25px;
+        }
+
+        .workflow-hint {
+            display: none;
+            margin-bottom: 20px;
+            padding: 14px 16px;
+            border: 1px solid var(--amber-500);
+            background: rgba(245,158,11,0.08);
+            color: var(--gray-700);
+        }
+
+        .workflow-hint strong {
+            color: var(--black);
+        }
+
+        .monitoring-card {
+            background: white;
+            border: 1px solid var(--gray-200);
+            padding: 1.25rem;
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+        }
+
+        .monitoring-info {
+            display: flex;
+            align-items: flex-start;
+            gap: 0.75rem;
+        }
+
+        .monitoring-icon {
+            width: 48px;
+            height: 48px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.7rem;
+            line-height: 1;
+        }
+
+        .monitoring-label {
+            font-size: 0.75rem;
+            color: var(--gray-500);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 0.25rem;
+        }
+
+        .monitoring-value {
+            font-weight: 600;
+            font-size: 1rem;
+            color: var(--black);
+        }
+
+        .monitoring-subvalue {
+            font-size: 0.75rem;
+            color: var(--gray-400);
+            margin-top: 4px;
+        }
+
+        .monitoring-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            flex-shrink: 0;
+            margin-top: 4px;
+            align-self: flex-start;
+        }
+
+        .status-indicator {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%; /* indicateur rond conservé */
+            transition: all 0.3s;
+        }
+
+        .status-indicator.online {
+            background: var(--emerald-500);
+            box-shadow: 0 0 8px rgba(16,185,129,0.35);
+        }
+
+        .status-indicator.offline {
+            background: var(--rose-500);
+        }
+
+        .status-indicator.unknown {
+            background: #9e9e9e;
+        }
+
+        @media (max-width: 1100px) {
+            .monitoring-bar {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        /* Logs */
+        .logs-list {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .log-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 15px 20px;
+            background: var(--gray-50);
+            border-radius: 0;
+            border: 1px solid var(--gray-200);
+            box-shadow: 0 1px 2px rgba(0,0,0,0.05); /* conservée */
+        }
+
+        .log-info {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .log-icon {
+            font-size: 1.5rem;
+        }
+
+        .log-details h4 {
+            font-size: 0.95rem;
+            color: var(--black);
+            margin-bottom: 3px;
+        }
+
+        .log-details p {
+            font-size: 0.8rem;
+            color: var(--gray-500);
+        }
+
+        .btn-download {
+            background: white;
+            border: 1px solid var(--orange-500);
+            color: var(--orange-500);
+            padding: 8px 16px;
+            cursor: pointer;
+            font-size: 0.85rem;
+            font-weight: 500;
+            border-radius: 0;
+            transition: all 0.15s;
+        }
+
+        .btn-download:hover {
+            background: var(--orange-500);
+            color: white;
+        }
+
+        /* Stats Grid (si utilisé) */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 20px;
+            margin-bottom: 25px;
+        }
+
+        .stat-card {
+            background: white;
+            padding: 20px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.05); /* conservée */
+            border: 1px solid var(--gray-200);
+            border-radius: 0;
+        }
+
+        .stat-value {
+            font-size: 2rem;
+            font-weight: 700;
+            color: var(--orange-500);
+            margin-bottom: 5px;
+        }
+
+        .stat-label {
+            font-size: 0.9rem;
+            color: var(--gray-500);
+        }
+    </style>
+    <script>
+        const BACKEND_HOST = (() => {
+            const storedHost = localStorage.getItem('medibot_backend_host');
+            if (storedHost) return storedHost;
+
+            const hostname = window.location.hostname;
+            if (!hostname || hostname === 'localhost' || hostname === '127.0.0.1') {
+                return 'localhost:3000';
+            }
+
+            return `${hostname}:3000`;
+        })();
+        document.write(`<script src="http://${BACKEND_HOST}/socket.io/socket.io.js"><\/script>`);
+    </script>
+</head>
+<body>
+    <!-- SIDEBAR -->
+    <aside class="sidebar">
+        <div class="sidebar-header">
+            <div class="sidebar-logo">
+                CENTRE DE
+                <span>TÉLÉCHIRURGIE</span>
+            </div>
+        </div>
+
+        <nav class="sidebar-nav">
+            <div class="nav-item active" data-section="patients" onclick="navigateTo('patients')">
+                <span class="nav-icon"><i class="fas fa-chart-line"></i></span>
+                <span class="nav-text">Tableau de Bord</span>
+            </div>
+            <div class="nav-item" data-section="history" onclick="navigateTo('history')">
+                <span class="nav-icon"><i class="fas fa-clipboard-list"></i></span>
+                <span class="nav-text">Historique des Interventions</span>
+            </div>
+            <div class="nav-item" data-section="logs" onclick="navigateTo('logs')">
+                <span class="nav-icon"><i class="fas fa-cog"></i></span>
+                <span class="nav-text">Paramètres Système</span>
+            </div>
+        </nav>
+
+        <div class="sidebar-footer">
+            <div class="user-profile">
+                <div class="user-avatar">👨‍⚕️</div>
+                <div>
+                    <div class="user-name">Dr. Arnaud Jefferson</div>
+                    <div class="user-role">Chirurgien Principal</div>
+                </div>
+            </div>
+            <button id="btn-logout" class="btn-logout" onclick="logoutWithConfirm()">
+                <i class="fas fa-sign-out-alt"></i> Déconnexion
+            </button>
+        </div>
+    </aside>
+
+    <!-- MAIN CONTENT -->
+    <main class="main-content">
+        <div class="page-header">
+            <h1 id="pageTitle">Suivi des Patients en Temps Réel</h1>
+            <p>Gestion et supervision des interventions chirurgicales à distance</p>
+        </div>
+
+        <div class="search-container">
+            <input type="text" class="search-box" id="searchBox" placeholder="🔍 Rechercher un patient par nom..." onkeyup="filterPatients()">
+        </div>
+
+        <!-- SECTION: Patients -->
+        <section class="content-section active" id="patients-section">
+            <div class="monitoring-bar">
+                <div class="stat-card monitoring-item monitoring-card">
+                    <div class="monitoring-info">
+                        <div class="monitoring-icon" style="color:var(--amber-500);"><i class="fas fa-user-nurse"></i></div>
+                        <div>
+                            <div class="monitoring-label">Assistant Médical</div>
+                            <div class="monitoring-value" id="assistantStatusText" style="color:var(--rose-500);">OFFLINE</div>
+                        </div>
+                    </div>
+                    <div class="status-indicator offline monitoring-dot" id="assistantStatusDot"></div>
+                </div>
+                <div class="stat-card monitoring-item monitoring-card">
+                    <div class="monitoring-info">
+                        <div class="monitoring-icon" style="color:var(--emerald-600);"><i class="fas fa-robot"></i></div>
+                        <div>
+                            <div class="monitoring-label">Arduino (Info)</div>
+                            <div class="monitoring-value" id="arduinoStatusText" style="color:var(--rose-500);">Déconnecté</div>
+                        </div>
+                    </div>
+                    <div class="status-indicator offline monitoring-dot" id="arduinoStatusDot"></div>
+                </div>
+                <div class="stat-card monitoring-item monitoring-card">
+                    <div class="monitoring-info">
+                        <div class="monitoring-icon" style="color:var(--indigo-600);"><i class="fas fa-file-signature"></i></div>
+                        <div>
+                            <div class="monitoring-label">Consentement</div>
+                            <div class="monitoring-value" id="consentStatusText" style="color:var(--rose-500);">NON VALIDÉ</div>
+                        </div>
+                    </div>
+                    <div class="status-indicator offline monitoring-dot" id="consentStatusDot"></div>
+                </div>
+            </div>
+
+            <div id="workflowHint" class="workflow-hint"></div>
+
+            <div class="card">
+                <div class="card-header">
+                    <span class="card-icon">🏥</span>
+                    <h2>Liste des Patients</h2>
+                </div>
+                <table class="data-table" id="patientsTable">
+                    <thead>
+                        <tr>
+                            <th>ID Patient</th>
+                            <th>Nom du Patient</th>
+                            <th>Pathologie</th>
+                            <th>Statut Assistant</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody id="patientsBody">
+                        <!-- Dynamically populated -->
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <!-- SECTION: History -->
+        <section class="content-section" id="history-section">
+            <div class="card">
+                <div class="card-header">
+                    <span class="card-icon">📋</span>
+                    <h2>Historique des Opérations</h2>
+                </div>
+                <table class="data-table" id="historyTable">
+                    <thead>
+                        <tr>
+                            <th>Date</th>
+                            <th>Patient</th>
+                            <th>Durée</th>
+                            <th>Statut</th>
+                        </tr>
+                    </thead>
+                    <tbody id="historyBody">
+                        <!-- Dynamically populated -->
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <!-- SECTION: Logs -->
+        <section class="content-section" id="logs-section">
+            <div class="card">
+                <div class="card-header">
+                    <span class="card-icon">⛓️</span>
+                    <h2>Archives Blockchain</h2>
+                </div>
+                <div class="logs-list" id="logsContainer">
+                    <!-- Dynamically populated -->
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <script>
+        // Navigation entre les sections
+        function navigateTo(section) {
+            document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
+            document.querySelector(`[data-section="${section}"]`).classList.add('active');
+            document.querySelectorAll('.content-section').forEach(el => el.classList.remove('active'));
+            document.getElementById(`${section}-section`).classList.add('active');
+        }
+
+        function filterPatients() {
+            const search = document.getElementById('searchBox').value.toLowerCase();
+            document.querySelectorAll('#patientsBody tr').forEach(row => {
+                row.style.display = row.textContent.toLowerCase().includes(search) ? '' : 'none';
+            });
+        }
+
+        function logoutWithConfirm() {
+            if (confirm('Voulez-vous vraiment vous déconnecter ?')) {
+                sessionStorage.clear();
+                window.location.href = 'login.html';
+            }
+        }
+    </script>
+    <script src="dashboard.js"></script>
+</body>
+</html>

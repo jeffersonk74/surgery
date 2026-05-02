@@ -1,0 +1,454 @@
+/* style.css - Console Téléchirurgie Full Screen */
+
+:root {
+    --bg-primary: #0a0a0a;
+    --bg-secondary: #0d1117;
+    --bg-panel: #161b22;
+    --neon-blue: #00d4ff;
+    --neon-green: #00ff41;
+    --neon-red: #ff3366;
+    --neon-yellow: #ffaa00;
+    --text-primary: #e6edf3;
+    --text-secondary: #8b949e;
+    --border-color: #30363d;
+    --grid-line: #21262d;
+}
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+html, body {
+    width: 100vw;
+    height: 100vh;
+    overflow: hidden;
+    font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+    background: var(--bg-primary);
+    color: var(--neon-green);
+}
+
+.container {
+    width: 100vw;
+    height: 100vh;
+    display: grid;
+    grid-template-rows: 50px 1fr 80px;
+    grid-template-areas: 
+        "header"
+        "main"
+        "footer";
+}
+
+/* Header - Console Style */
+header {
+    grid-area: header;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0 20px;
+    background: var(--bg-secondary);
+    border-bottom: 2px solid var(--neon-blue);
+}
+
+h1 {
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: var(--neon-blue);
+    text-shadow: 0 0 10px rgba(0, 212, 255, 0.5);
+    letter-spacing: 2px;
+}
+
+/* Back Button - Sober style */
+.btn-secondary {
+    padding: 8px 16px;
+    background: #2d2d2d;
+    color: white;
+    border: 1px solid #444;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 0.85rem;
+    font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+    transition: all 0.2s ease;
+}
+
+.btn-secondary:hover {
+    background: #3d3d3d;
+    border-color: #555;
+}
+
+.connection-status {
+    padding: 6px 12px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    background: transparent;
+    border: 1px solid var(--neon-green);
+    color: var(--neon-green);
+    text-shadow: 0 0 5px rgba(0, 255, 65, 0.5);
+}
+
+.connection-status.connected {
+    background: rgba(0, 255, 65, 0.1);
+    box-shadow: 0 0 10px rgba(0, 255, 65, 0.3);
+}
+
+.connection-status.connecting {
+    border-color: var(--neon-yellow);
+    color: var(--neon-yellow);
+}
+
+/* Main Layout - 70% Video / 30% Controls */
+.grid-layout {
+    grid-area: main;
+    display: grid;
+    grid-template-columns: 70% 30%;
+    height: 100%;
+    overflow: hidden;
+}
+
+/* Sections - Console Panels */
+section {
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    padding: 15px;
+    overflow: hidden;
+}
+
+section h2 {
+    font-size: 0.9rem;
+    margin-bottom: 10px;
+    color: var(--neon-blue);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    border-bottom: 1px solid var(--grid-line);
+    padding-bottom: 8px;
+}
+
+.video-section {
+    display: flex;
+    flex-direction: column;
+    border-right: 2px solid var(--border-color);
+}
+
+.controls-section {
+    display: flex;
+    flex-direction: column;
+    background: var(--bg-panel);
+}
+
+/* Video Section - Full Container */
+.video-container {
+    position: relative;
+    flex: 1;
+    width: 100%;
+    background: #000;
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+#remoteVideo {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    min-width: 100%;
+    min-height: 100%;
+}
+
+.video-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(255, 0, 0, 0.85);
+    color: var(--neon-green);
+    font-size: 1rem;
+    text-shadow: 0 0 10px var(--neon-green);
+}
+
+.video-overlay.hidden {
+    display: none;
+}
+
+.webrtc-controls {
+    display: flex;
+    gap: 10px;
+    padding: 10px 0 0 0;
+}
+
+/* Buttons - Console Style */
+.btn {
+    padding: 8px 16px;
+    border: 1px solid var(--neon-blue);
+    background: transparent;
+    color: var(--neon-blue);
+    font-family: inherit;
+    font-size: 0.8rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+.btn:hover:not(:disabled) {
+    background: var(--neon-blue);
+    color: var(--bg-primary);
+    box-shadow: 0 0 15px rgba(0, 212, 255, 0.5);
+}
+
+.btn-primary {
+    border-color: var(--neon-green);
+    color: var(--neon-green);
+}
+
+.btn-primary:hover:not(:disabled) {
+    background: var(--neon-green);
+    box-shadow: 0 0 15px rgba(0, 255, 65, 0.5);
+}
+
+.btn-danger {
+    border-color: var(--neon-red);
+    color: var(--neon-red);
+}
+
+.btn-danger:hover:not(:disabled) {
+    background: var(--neon-red);
+    box-shadow: 0 0 15px rgba(255, 51, 102, 0.5);
+}
+
+.btn-secondary {
+    border-color: var(--text-secondary);
+    color: var(--text-secondary);
+    font-size: 0.7rem;
+    padding: 6px 12px;
+}
+
+.btn-secondary:hover {
+    border-color: var(--neon-blue);
+    color: var(--neon-blue);
+    background: transparent;
+}
+
+.btn:disabled {
+    opacity: 0.3;
+    cursor: not-allowed;
+    box-shadow: none;
+}
+
+/* Controls Section - Compact */
+.sliders-container {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    overflow-y: auto;
+    padding-right: 5px;
+}
+
+.slider-group {
+    display: grid;
+    grid-template-columns: 90px 1fr 40px;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 0;
+    border-bottom: 1px solid var(--grid-line);
+}
+
+.slider-group label {
+    font-size: 0.7rem;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.slider {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 100%;
+    height: 4px;
+    border-radius: 2px;
+    background: var(--grid-line);
+    outline: none;
+    cursor: pointer;
+}
+
+.slider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 14px;
+    height: 14px;
+    border-radius: 2px;
+    background: var(--neon-green);
+    cursor: pointer;
+    box-shadow: 0 0 8px rgba(0, 255, 65, 0.8);
+}
+
+.slider::-webkit-slider-thumb:hover {
+    box-shadow: 0 0 12px rgba(0, 255, 65, 1);
+}
+
+.slider::-moz-range-thumb {
+    width: 14px;
+    height: 14px;
+    border-radius: 2px;
+    background: var(--neon-green);
+    cursor: pointer;
+    border: none;
+    box-shadow: 0 0 8px rgba(0, 255, 65, 0.8);
+}
+
+.value {
+    font-size: 0.75rem;
+    color: var(--neon-blue);
+    font-weight: 600;
+    text-align: right;
+    text-shadow: 0 0 5px rgba(0, 212, 255, 0.5);
+}
+
+/* Presets - Compact */
+.presets {
+    margin-top: 10px;
+    padding-top: 10px;
+    border-top: 1px solid var(--grid-line);
+}
+
+.presets h3 {
+    font-size: 0.7rem;
+    color: var(--text-secondary);
+    margin-bottom: 8px;
+    text-transform: uppercase;
+}
+
+.preset-buttons {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+}
+
+/* Blockchain Footer - Console Ticker Style */
+footer.blockchain-status {
+    grid-area: footer;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0 20px;
+    background: var(--bg-secondary);
+    border-top: 2px solid var(--neon-green);
+    font-size: 0.8rem;
+}
+
+.blockchain-info {
+    display: flex;
+    gap: 30px;
+    align-items: center;
+}
+
+.blockchain-info h3 {
+    font-size: 0.75rem;
+    color: var(--neon-green);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    text-shadow: 0 0 5px rgba(0, 255, 65, 0.5);
+}
+
+.hash-display {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+}
+
+.hash-value {
+    color: var(--neon-blue);
+    background: rgba(0, 212, 255, 0.1);
+    padding: 4px 10px;
+    border: 1px solid var(--neon-blue);
+    font-family: 'Courier New', monospace;
+    font-size: 0.75rem;
+    text-shadow: 0 0 5px rgba(0, 212, 255, 0.5);
+    transition: all 0.3s ease;
+}
+
+.hash-value.hash-flash {
+    color: var(--neon-green);
+    background: rgba(0, 255, 65, 0.3);
+    border-color: var(--neon-green);
+    box-shadow: 0 0 20px rgba(0, 255, 65, 0.8);
+    text-shadow: 0 0 10px rgba(0, 255, 65, 1);
+}
+
+.block-info {
+    color: var(--text-secondary);
+}
+
+#blockCount {
+    color: var(--neon-green);
+    font-weight: 600;
+}
+
+.latency-info {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+}
+
+.label {
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    font-size: 0.7rem;
+}
+
+#latency {
+    color: var(--neon-yellow);
+    font-weight: 600;
+    text-shadow: 0 0 5px rgba(255, 170, 0, 0.5);
+}
+
+/* Scrollbar Styling */
+::-webkit-scrollbar {
+    width: 6px;
+}
+
+::-webkit-scrollbar-track {
+    background: var(--bg-secondary);
+}
+
+::-webkit-scrollbar-thumb {
+    background: var(--neon-green);
+    border-radius: 3px;
+}
+
+/* Animations */
+@keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.5; }
+}
+
+@keyframes scanline {
+    0% { transform: translateY(-100%); }
+    100% { transform: translateY(100vh); }
+}
+
+.connecting {
+    animation: pulse 1.5s infinite;
+}
+
+/* Responsive - Force landscape on mobile */
+@media (max-width: 968px) {
+    .grid-layout {
+        grid-template-columns: 60% 40%;
+    }
+    
+    .slider-group {
+        grid-template-columns: 70px 1fr 35px;
+    }
+    
+    h1 {
+        font-size: 0.9rem;
+    }
+}

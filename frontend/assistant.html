@@ -1,0 +1,1950 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Console Assistant – Téléchirurgie</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400;14..32,500;14..32,600;14..32,700&family=Helvetica+Neue:wght@400;500;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --orange-500: #ff7900;
+            --orange-600: #e56a00;
+            --orange-700: #cc5a00;
+            --black: #000000;
+            --white: #ffffff;
+            --gray-50: #f8f9fa;
+            --gray-100: #f0f0f0;
+            --gray-200: #e0e0e0;
+            --gray-300: #cccccc;
+            --gray-400: #999999;
+            --gray-500: #666666;
+            --gray-600: #333333;
+            --gray-700: #1a1a1a;
+            --indigo-950: #1e1b4b;
+            --indigo-900: #312e81;
+            --indigo-800: #3730a3;
+            --indigo-700: #4338ca;
+            --indigo-600: #4f46e5;
+            --emerald-500: #10b981;
+            --emerald-600: #059669;
+            --rose-500: #f43f5e;
+            --amber-500: #f59e0b;
+            --radius-none: 0px;
+            --font-sans: 'Helvetica Neue', 'Inter', system-ui, -apple-system, sans-serif;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: var(--font-sans);
+            background-color: var(--white);
+            color: var(--black);
+            display: flex;
+            height: 100vh;
+            overflow: hidden;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        /* === SIDEBAR === */
+        .sidebar {
+            width: 260px;
+            background-color: var(--indigo-950);
+            color: var(--white);
+            display: flex;
+            flex-direction: column;
+            flex-shrink: 0;
+        }
+        .sidebar-header {
+            padding: 1.5rem;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+        .sidebar-logo {
+            width: 42px;
+            height: 42px;
+            background-color: var(--orange-500);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.2rem;
+            color: white;
+        }
+        .sidebar-title {
+            font-weight: 600;
+            font-size: 1rem;
+            line-height: 1.3;
+        }
+        .sidebar-subtitle {
+            font-size: 0.7rem;
+            opacity: 0.7;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .sidebar-profile {
+            margin: 1.5rem 1rem;
+            padding: 1rem;
+            background: rgba(255,255,255,0.05);
+            border: 1px solid rgba(255,255,255,0.1);
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+        .profile-avatar {
+            width: 44px;
+            height: 44px;
+            background: linear-gradient(135deg, var(--indigo-600), var(--orange-500));
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 600;
+            font-size: 1rem;
+            color: white;
+            position: relative;
+        }
+        .profile-online {
+            position: absolute;
+            bottom: -2px;
+            right: -2px;
+            width: 12px;
+            height: 12px;
+            background: var(--emerald-500);
+            border: 2px solid var(--indigo-950);
+            border-radius: 50%;
+        }
+        .profile-name {
+            font-weight: 500;
+            font-size: 0.95rem;
+        }
+        .profile-status {
+            font-size: 0.75rem;
+            opacity: 0.7;
+            display: flex;
+            align-items: center;
+            gap: 0.25rem;
+        }
+        .profile-status .pulse {
+            width: 7px;
+            height: 7px;
+            background: var(--emerald-500);
+            border-radius: 50%;
+            animation: pulse 2s infinite;
+        }
+        @keyframes pulse {
+            0%,100%{ opacity:1; transform:scale(1); }
+            50%{ opacity:0.5; transform:scale(1.2); }
+        }
+
+        .sidebar-nav {
+            flex: 1;
+            padding: 0.5rem 1rem;
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+        }
+        .sidebar-link {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            padding: 0.75rem 1rem;
+            font-size: 0.85rem;
+            font-weight: 500;
+            color: rgba(255,255,255,0.7);
+            text-decoration: none;
+            transition: all 0.15s ease;
+            border-left: 3px solid transparent;
+        }
+        .sidebar-link:hover {
+            background: rgba(255,255,255,0.05);
+            color: white;
+        }
+        .sidebar-link.active {
+            background: rgba(255,255,255,0.1);
+            color: white;
+            border-left-color: var(--orange-500);
+        }
+        .sidebar-link i {
+            width: 20px;
+            text-align: center;
+        }
+
+        .sidebar-footer {
+            padding: 1rem;
+            border-top: 1px solid rgba(255,255,255,0.1);
+        }
+        .btn-logout {
+            width: 100%;
+            padding: 0.75rem;
+            background: none;
+            border: 1px solid rgba(255,255,255,0.2);
+            color: #fca5a5;
+            font-family: var(--font-sans);
+            font-size: 0.85rem;
+            font-weight: 500;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+            cursor: pointer;
+            transition: background 0.15s;
+        }
+        .btn-logout:hover {
+            background: rgba(255,0,0,0.1);
+            color: #fecaca;
+        }
+
+        /* === MAIN CONTENT === */
+        .main {
+            flex: 1;
+            overflow-y: auto;
+            background: var(--gray-50);
+        }
+
+        .topbar {
+            background: white;
+            border-bottom: 1px solid var(--gray-200);
+            padding: 1rem 2rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        .topbar-left h2 {
+            font-size: 1.25rem;
+            font-weight: 600;
+        }
+        .topbar-breadcrumb {
+            font-size: 0.8rem;
+            color: var(--gray-500);
+            margin-bottom: 0.25rem;
+        }
+        .server-badge {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.5rem 1rem;
+            background: #ecfdf5;
+            border: 1px solid #d1fae5;
+            font-size: 0.8rem;
+            font-weight: 500;
+            color: var(--emerald-600);
+        }
+        .server-badge .dot {
+            width: 8px;
+            height: 8px;
+            background: var(--emerald-500);
+            border-radius: 50%;
+        }
+
+        .page {
+            padding: 2rem;
+            display: none;
+        }
+        .page.active {
+            display: block;
+        }
+
+        /* Cards grid */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+        }
+        .stat-card {
+            background: white;
+            border: 1px solid var(--gray-200);
+            padding: 1.25rem;
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+        }
+        .stat-card .stat-info {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+        .stat-icon {
+            width: 48px;
+            height: 48px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.25rem;
+        }
+        .stat-label {
+            font-size: 0.75rem;
+            color: var(--gray-500);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        .stat-value {
+            font-weight: 600;
+            font-size: 1rem;
+        }
+        .stat-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            flex-shrink: 0;
+            margin-top: 4px;
+        }
+
+        /* Action banner */
+        .action-banner {
+            background: var(--indigo-950);
+            color: white;
+            padding: 1.5rem 2rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 2rem;
+        }
+        .action-banner h3 {
+            font-size: 1.1rem;
+            font-weight: 600;
+        }
+        .action-banner p {
+            font-size: 0.85rem;
+            opacity: 0.8;
+        }
+        .btn-ready {
+            padding: 0.75rem 2rem;
+            background: var(--orange-500);
+            border: none;
+            color: white;
+            font-family: var(--font-sans);
+            font-weight: 600;
+            font-size: 0.9rem;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            transition: background 0.15s;
+        }
+        .btn-ready:hover {
+            background: var(--orange-600);
+        }
+        .btn-ready.cancel {
+            background: var(--rose-500);
+        }
+        .btn-ready.cancel:hover {
+            background: #e11d48;
+        }
+
+        .patient-select-cell {
+            min-width: 150px;
+        }
+
+        .patient-radio {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            cursor: pointer;
+            font-weight: 600;
+            color: var(--gray-700);
+        }
+
+        .patient-radio.disabled {
+            opacity: 0.55;
+            cursor: not-allowed;
+        }
+
+        .patient-radio input {
+            accent-color: var(--emerald-500);
+        }
+
+        /* Table */
+        .panel {
+            background: white;
+            border: 1px solid var(--gray-200);
+        }
+        .panel-header {
+            padding: 1rem 1.5rem;
+            border-bottom: 1px solid var(--gray-200);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        .panel-header h3 {
+            font-weight: 600;
+            font-size: 1rem;
+        }
+        .search-input {
+            padding: 0.5rem 0.75rem 0.5rem 2rem;
+            border: 1px solid var(--gray-300);
+            font-family: var(--font-sans);
+            font-size: 0.85rem;
+            width: 240px;
+            background: white;
+        }
+        .search-wrapper {
+            position: relative;
+        }
+        .search-wrapper i {
+            position: absolute;
+            left: 0.75rem;
+            top: 50%;
+            transform: translateY(-50%);
+            color: var(--gray-400);
+            font-size: 0.8rem;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        thead th {
+            text-align: left;
+            padding: 0.75rem 1.5rem;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: var(--gray-500);
+            background: var(--gray-50);
+            border-bottom: 1px solid var(--gray-200);
+        }
+        tbody td {
+            padding: 0.75rem 1.5rem;
+            font-size: 0.85rem;
+            border-bottom: 1px solid var(--gray-100);
+        }
+        tbody tr:hover {
+            background: #fafafa;
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 0.25rem 0.75rem;
+            font-size: 0.7rem;
+            font-weight: 600;
+            letter-spacing: 0.3px;
+            border: 1px solid;
+        }
+        .badge-urgent { background: #fef2f2; color: #991b1b; border-color: #fecaca; }
+        .badge-high { background: #fffbeb; color: #92400e; border-color: #fde68a; }
+        .badge-normal { background: #f0f9ff; color: #075985; border-color: #e0f2fe; }
+        .badge-status { font-size: 0.7rem; }
+
+        .btn-action {
+            padding: 0.4rem 1rem;
+            font-family: var(--font-sans);
+            font-size: 0.75rem;
+            font-weight: 600;
+            cursor: pointer;
+            border: 1px solid var(--gray-300);
+            background: white;
+            transition: all 0.15s;
+        }
+        .btn-action.validate {
+            background: var(--emerald-500);
+            border-color: var(--emerald-500);
+            color: white;
+        }
+        .btn-action.validate:hover {
+            background: var(--emerald-600);
+        }
+        .btn-action:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        /* Forms */
+        .form-group {
+            margin-bottom: 1.5rem;
+        }
+        .form-group label {
+            display: block;
+            font-size: 0.85rem;
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+        }
+        .form-group input {
+            width: 100%;
+            padding: 0.75rem 1rem;
+            border: 2px solid var(--black);
+            font-family: var(--font-sans);
+            font-size: 0.95rem;
+            background: white;
+        }
+        .form-group input:focus {
+            outline: none;
+            border-color: var(--orange-500);
+        }
+        .btn-submit {
+            padding: 0.75rem 2rem;
+            background: var(--orange-500);
+            border: none;
+            color: white;
+            font-weight: 600;
+            cursor: pointer;
+        }
+        .btn-submit:hover {
+            background: var(--orange-600);
+        }
+
+        .toast-container {
+            position: fixed;
+            bottom: 1.5rem;
+            right: 1.5rem;
+            z-index: 100;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+        .toast {
+            padding: 1rem 1.5rem;
+            color: white;
+            font-weight: 500;
+            font-size: 0.85rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            animation: slideIn 0.3s ease;
+        }
+        @keyframes slideIn {
+            from { transform: translateX(100%); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+        .toast-success { background: var(--emerald-600); }
+        .toast-error { background: var(--rose-500); }
+        .toast-info { background: var(--indigo-600); }
+
+        /* Toggle switch */
+        .toggle-label {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            cursor: pointer;
+        }
+        .toggle-switch {
+            width: 44px;
+            height: 24px;
+            background: var(--gray-300);
+            border-radius: 0;
+            position: relative;
+            transition: background 0.2s;
+        }
+        .toggle-switch.active {
+            background: var(--orange-500);
+        }
+        .toggle-switch::after {
+            content: '';
+            position: absolute;
+            width: 20px;
+            height: 20px;
+            background: white;
+            top: 2px;
+            left: 2px;
+            transition: transform 0.2s;
+        }
+        .toggle-switch.active::after {
+            transform: translateX(20px);
+        }
+
+        @media (max-width: 768px) {
+            .stats-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Sidebar -->
+    <aside class="sidebar">
+        <div class="sidebar-header">
+            <div class="sidebar-logo"><i class="fas fa-microchip"></i></div>
+            <div>
+                <div class="sidebar-title">MediBot</div>
+                <div class="sidebar-subtitle">Console Assistant</div>
+            </div>
+        </div>
+        <div class="sidebar-profile">
+            <div class="profile-avatar">
+                JS
+                <span class="profile-online"></span>
+            </div>
+            <div>
+                <div class="profile-name">Jane Smith</div>
+                <div class="profile-status"><span class="pulse"></span> En ligne</div>
+            </div>
+        </div>
+        <nav class="sidebar-nav">
+            <a href="#" class="sidebar-link active" data-page="dashboard">
+                <i class="fas fa-home"></i> Tableau de bord
+            </a>
+            <a href="#" class="sidebar-link" data-page="new-patient">
+                <i class="fas fa-user-plus"></i> Nouveau Patient
+            </a>
+            <a href="#" class="sidebar-link" data-page="dossiers">
+                <i class="fas fa-folder-open"></i> Dossiers
+            </a>
+            <a href="#" class="sidebar-link" data-page="settings">
+                <i class="fas fa-cog"></i> Paramètres
+            </a>
+        </nav>
+
+        <!-- Chat Modal Button -->
+        <button id="chat-modal-btn" onclick="ChatModal.open()" style="margin: 0 1rem 1rem; width: calc(100% - 2rem); border: 1px solid rgba(59, 130, 246, 0.5); border-left: 4px solid rgba(59, 130, 246, 0.8); background: rgba(0,0,0,0.3); padding: 0.75rem; text-align: left; cursor: pointer; border-radius: 8px; transition: all 0.2s;">
+            <div style="display: flex; align-items: center; justify-content: space-between;">
+                <div style="display: flex; align-items: center; gap: 0.5rem; font-size: 0.7rem; text-transform: uppercase; letter-spacing: 1px; color: #60a5fa;">
+                    <i class="fas fa-comments"></i>
+                    Communication
+                </div>
+                <span id="chat-unread-badge" style="display: none; min-width: 18px; height: 18px; padding: 0 5px; background: #ef4444; border-radius: 9px; font-size: 0.65rem; font-weight: bold; color: white; align-items: center; justify-content: center;">0</span>
+            </div>
+            <div style="margin-top: 0.5rem; display: flex; align-items: center; gap: 0.5rem; font-size: 0.65rem; color: #64748b;">
+                <span id="chat-status-dot" style="width: 6px; height: 6px; background: #10b981; border-radius: 50%;"></span>
+                <span id="chat-status-text">Connecté au chirurgien</span>
+            </div>
+        </button>
+
+        <div class="sidebar-footer">
+            <button class="btn-logout" onclick="logout()">
+                <i class="fas fa-sign-out-alt"></i> Déconnexion
+            </button>
+        </div>
+    </aside>
+
+    <!-- Main -->
+    <main class="main">
+        <div class="topbar">
+            <div class="topbar-left">
+                <div class="topbar-breadcrumb">Accueil / <strong>Console</strong></div>
+                <h2>Tableau de bord</h2>
+            </div>
+            <div class="server-badge">
+                <span class="dot"></span> Serveur Local Actif
+            </div>
+        </div>
+
+        <!-- Dashboard -->
+        <div id="page-dashboard" class="page active">
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-info">
+                        <div class="stat-icon" style="color:var(--emerald-600);">📶</div>
+                        <div>
+                            <div class="stat-label">Latence Connexion</div>
+                            <div id="latencyStatus" class="stat-value">12 ms</div>
+
+                        </div>
+                    </div>
+                    <div class="stat-dot" style="background:var(--emerald-500);"></div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-info">
+                        <div id="arduinoIcon" class="stat-icon" style="color:var(--emerald-600);">🤖</div>
+                        <div>
+                            <div class="stat-label">Matériel Arduino</div>
+                            <div id="arduinoStatus" class="stat-value">Connecté</div>
+                            <div id="arduinoPort" style="font-size:0.75rem;color:var(--gray-400);">/dev/ttyACM0</div>
+                        </div>
+                    </div>
+                    <div id="arduinoDot" class="stat-dot" style="background:var(--emerald-500);"></div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-info">
+                        <div id="surgeonIcon" class="stat-icon" style="color:var(--amber-500);">👨‍⚕️</div>
+                        <div>
+                            <div class="stat-label">Chirurgien</div>
+                            <div id="surgeonStatus" class="stat-value">Hors ligne</div>
+                        </div>
+                    </div>
+                    <div id="surgeonDot" class="stat-dot" style="background:var(--amber-500);"></div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-info">
+                        <div class="stat-icon" style="color:var(--indigo-600);">🛡️</div>
+                        <div>
+                            <div class="stat-label">Protocole Sécurité</div>
+                            <div class="stat-value">Actif</div>
+                            <div style="font-size:0.75rem;color:var(--gray-400);">AES-256</div>
+                        </div>
+                    </div>
+                    <div class="stat-dot" style="background:var(--indigo-600);"></div>
+                </div>
+            </div>
+
+            <div class="action-banner">
+                <div>
+                    <h3>Prêt pour l'opération</h3>
+                    <p id="actionSubtitle">Confirmez votre disponibilité pour autoriser l'accès chirurgien</p>
+                </div>
+                <div style="display:flex;gap:0.75rem;flex-wrap:wrap;justify-content:flex-end;">
+                    <button id="consentBtn" class="btn-ready" onclick="togglePatientConsent()" disabled>
+                        <i class="fas fa-file-signature"></i> Consentement Patient
+                    </button>
+                    <button id="readyBtn" class="btn-ready" onclick="toggleGlobalReady()">
+                        <i class="fas fa-check-circle"></i> Passer en mode PRÊT
+                    </button>
+                </div>
+            </div>
+
+            <div class="panel" style="margin-bottom:1.5rem;">
+                <div class="panel-header">
+                    <h3>Chirurgiens connectés (<span id="surgeonCount">0</span>)</h3>
+                </div>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>ID Chirurgien</th>
+                            <th>Statut</th>
+                            <th>Patient Actif</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody id="surgeonsBody">
+                        <tr><td colspan="4" style="text-align:center;padding:2rem;color:gray;">Aucun chirurgien connecté</td></tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="panel">
+                <div class="panel-header">
+                    <h3>Patients en attente (<span id="patientCount">0</span>)</h3>
+                    <div class="search-wrapper">
+                        <i class="fas fa-search"></i>
+                        <input type="text" id="searchPatient" placeholder="Rechercher..." class="search-input">
+                    </div>
+                </div>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>ID Référence</th>
+                            <th>Patient</th>
+                            <th>Procédure</th>
+                            <th>Priorité</th>
+                            <th>Sélection</th>
+                        </tr>
+                    </thead>
+                    <tbody id="patientsBody"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Nouveau Patient -->
+        <div id="page-new-patient" class="page">
+            <h2 style="margin-bottom:1.5rem;">Nouveau Patient</h2>
+            <form id="newPatientForm" style="max-width:600px;">
+                <div class="form-group">
+                    <label>Prénom</label>
+                    <input type="text" id="patientPrenom" required>
+                </div>
+                <div class="form-group">
+                    <label>Nom</label>
+                    <input type="text" id="patientNom" required>
+                </div>
+                <div class="form-group">
+                    <label>Pathologie / Intervention</label>
+                    <input type="text" id="patientPathologie" required>
+                </div>
+                <button type="submit" class="btn-submit"><i class="fas fa-save"></i> Enregistrer</button>
+            </form>
+        </div>
+
+        <!-- Dossiers -->
+        <div id="page-dossiers" class="page">
+            <h2 style="margin-bottom:1.5rem;">Dossiers Patients</h2>
+            <div id="dossiersList"></div>
+        </div>
+
+        <!-- Paramètres -->
+        <div id="page-settings" class="page">
+            <h2 style="margin-bottom:1.5rem;">Paramètres</h2>
+            <div style="max-width:500px;">
+                <div style="display:flex;align-items:center;justify-content:space-between;padding:1rem;border:1px solid var(--gray-200);margin-bottom:1rem;">
+                    <div>
+                        <strong>Notifications</strong>
+                        <div style="font-size:0.8rem;color:var(--gray-500);">Activer les alertes sonores</div>
+                    </div>
+                    <div class="toggle-label" onclick="this.querySelector('.toggle-switch').classList.toggle('active')">
+                        <div class="toggle-switch active"></div>
+                    </div>
+                </div>
+                <div style="display:flex;align-items:center;justify-content:space-between;padding:1rem;border:1px solid var(--gray-200);">
+                    <div>
+                        <strong>Mode Sombre</strong>
+                        <div style="font-size:0.8rem;color:var(--gray-500);">Thème sombre de l'interface</div>
+                    </div>
+                    <div class="toggle-label" onclick="this.querySelector('.toggle-switch').classList.toggle('active')">
+                        <div class="toggle-switch"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <div class="toast-container" id="toastContainer"></div>
+
+    <script>
+        function getBackendHost() {
+            const stored = localStorage.getItem('medibot_backend_host');
+            if (stored) return stored;
+            return window.location.hostname === 'localhost' ? 'localhost:3000' : '10.117.147.182:3000';
+        }
+        const BACKEND_HOST = getBackendHost();
+        const API_URL = `http://${BACKEND_HOST}/api`;
+        const WS_URL = `http://${BACKEND_HOST}`;
+
+        let socket = null;
+        let patients = [];
+        let connectedSurgeons = [];
+        let currentUser = null;
+        let isReady = false;
+        let patientConsent = false;
+        let currentPatientId = null;
+        let operationStartedPatientId = null;
+        let arduinoConnected = false;
+
+        document.addEventListener('DOMContentLoaded', initApp);
+
+        function initApp() {
+            const token = sessionStorage.getItem('token');
+            if (!token) { window.location.href = 'login.html'; return; }
+            const userStr = sessionStorage.getItem('user');
+            currentUser = userStr ? JSON.parse(userStr) : { prenom: 'Jane', nom: 'Smith' };
+            initSocket();
+            loadPatients();
+            startHeartbeat();
+            setupNavigation();
+        }
+
+        function setupNavigation() {
+            document.querySelectorAll('.sidebar-link').forEach(link => {
+                link.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    const page = link.dataset.page;
+                    document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+                    document.getElementById('page-' + page).classList.add('active');
+                    document.querySelectorAll('.sidebar-link').forEach(l => l.classList.remove('active'));
+                    link.classList.add('active');
+                    if (page === 'dossiers') loadDossiers();
+                    if (page === 'dashboard') loadPatients();
+                });
+            });
+        }
+
+        function initSocket() {
+            const script = document.createElement('script');
+            script.src = `${WS_URL}/socket.io/socket.io.js`;
+            script.onload = () => {
+                socket = io(WS_URL, { transports: ['websocket', 'polling'] });
+                socket.on('connect', () => {
+                    const assistantId = currentUser?.id || 'assistant-1';
+                    socket.emit('assistant:online', {
+                        userId: assistantId,
+                        persistentId: assistantId,
+                        roomId: 'Bloc-01'
+                    });
+                    socket.emit('get:system-status');
+                    socket.emit('assistant:status', {
+                        online: true,
+                        ready: isReady,
+                        patientConsent: patientConsent,
+                        patientConsentPatientId: currentPatientId,
+                        userId: currentUser?.id || 'assistant-1'
+                    });
+                    showToast('Connecté au serveur', 'success');
+                });
+                socket.on('disconnect', () => showToast('Déconnecté', 'error'));
+                socket.on('system:status', updateStatusCards);
+                socket.on('surgeon:online', (data) => {
+                    showToast(`Chirurgien ${data.userId} connecté`, 'info');
+                    // Ajouter le chirurgien s'il n'existe pas déjà
+                    if (!connectedSurgeons.find(s => s.userId === data.userId)) {
+                        connectedSurgeons.push({ userId: data.userId, inRoom: false, patientId: null });
+                        renderSurgeons();
+                    }
+                });
+                socket.on('surgeon:offline', (data) => {
+                    showToast(`Chirurgien ${data.userId} déconnecté`, 'error');
+                    connectedSurgeons = connectedSurgeons.filter(s => s.userId !== data.userId);
+                    renderSurgeons();
+                });
+                socket.on('surgeon:enter-room', (data) => {
+                    const surgeon = connectedSurgeons.find(s => s.userId === data.surgeonId);
+                    if (surgeon) {
+                        surgeon.inRoom = true;
+                        surgeon.patientId = data.patientId;
+                    } else {
+                        connectedSurgeons.push({ userId: data.surgeonId, inRoom: true, patientId: data.patientId });
+                    }
+                    renderSurgeons();
+                    renderPatients();
+                    updateReadyUI();
+
+                    // Redirect to salle d'opération
+                    sessionStorage.setItem('currentPatientId', data.patientId);
+                    sessionStorage.setItem('currentSurgeonId', data.surgeonId);
+                    window.location.href = 'salle.html';
+                });
+                socket.on('surgeon:leave-room', (data) => {
+                    const surgeon = connectedSurgeons.find(s => s.userId === data.surgeonId);
+                    if (surgeon) {
+                        surgeon.inRoom = false;
+                        surgeon.patientId = null;
+                        renderSurgeons();
+                    }
+                    renderPatients();
+                    updateReadyUI();
+                });
+                socket.on('operation:paused', (data) => {
+                    console.log('[ASSISTANT] operation:paused reçu:', data, 'operationStartedPatientId actuel:', operationStartedPatientId);
+                    // Chirurgien quitte sans opération active - déverrouiller pour permettre nouvelle sélection
+                    if (operationStartedPatientId === data.patientId) {
+                        operationStartedPatientId = null;
+                        console.log('[ASSISTANT] Déverrouillage effectué - nouvelle sélection possible');
+                        renderPatients();
+                        updateReadyUI();
+                    }
+                });
+                socket.on('operation:started', (data) => {
+                    console.log('[ASSISTANT] operation:started reçu:', data);
+                    // Verrouiller toutes les actions de consentement et prêt
+                    operationStartedPatientId = data.patientId || operationStartedPatientId;
+                    console.log('[ASSISTANT] Verrouillage effectué - operationStartedPatientId:', operationStartedPatientId);
+                    // Forcer le verrouillage UI
+                    renderPatients();
+                    updateReadyUI();
+                });
+                socket.on('operation:ended', (data) => {
+                    // Déverrouiller tout UNIQUEMENT après archivage
+                    if (!data?.patientId || operationStartedPatientId === data.patientId) {
+                        operationStartedPatientId = null;
+                    }
+                    if (currentPatientId === data?.patientId) {
+                        patientConsent = false;
+                    }
+                    loadPatients(true);
+                    renderPatients();
+                    updateReadyUI();
+                });
+                socket.on('patients:updated', () => loadPatients(true));
+                socket.on('arduino:status', (status) => {
+                    arduinoConnected = status.connected;
+                    updateArduinoUI(status.connected, status.port);
+                });
+                socket.on('assistant:action-blocked', (data) => {
+                    if (data?.reason === 'operation-active') {
+                        showToast('Intervention en cours: sélection verrouillée jusqu\'à l\'archivage', 'error');
+                        operationStartedPatientId = data.patientId || operationStartedPatientId;
+                        updateReadyUI();
+                        renderPatients();
+                    }
+                });
+                socket.on('surgeon:status', updateSurgeonStatus);
+                socket.on('assistant:status', (data) => {
+                    // Déduplication
+                    if (EventDeduplicator.isDuplicate(data._eventId)) {
+                        console.log('[ASSISTANT] Duplicate assistant:status ignored');
+                        return;
+                    }
+
+                    console.log('[ASSISTANT] assistant:status reçu:', data, 'currentPatientId actuel:', currentPatientId);
+                    if (typeof data.ready === 'boolean') {
+                        isReady = data.ready;
+                    }
+                    if (typeof data.patientConsent === 'boolean') {
+                        patientConsent = data.patientConsent;
+                    }
+                    if (typeof data.patientConsentPatientId !== 'undefined') {
+                        currentPatientId = data.patientConsentPatientId || (data.ready ? (data.patientId || currentPatientId) : null);
+                    } else if (data.patientId && data.ready) {
+                        currentPatientId = data.patientId;
+                    } else if (typeof data.ready === 'boolean' && !data.ready) {
+                        currentPatientId = null;
+                    }
+                    console.log('[ASSISTANT] assistant:status - currentPatientId après:', currentPatientId);
+                    renderPatients();
+                    updateReadyUI();
+                });
+
+                // Patient créé en temps réel (depuis un autre client)
+                socket.on('patient:created', (data) => {
+                    if (EventDeduplicator.isDuplicate(data._eventId)) return;
+
+                    console.log('[ASSISTANT] Patient created via realtime:', data.patient.patientId);
+
+                    // Si c'est notre propre création, on l'a déjà ajoutée
+                    if (data.by === (currentUser?.id || 'assistant-1')) return;
+
+                    // Sinon, ajouter au tableau
+                    addPatientToTable(data.patient);
+                    showToast(`Nouveau patient: ${data.patient.nom}`, 'info');
+                });
+
+                // Système de sync post-reconnexion
+                socket.on('sync:full', (data) => {
+                    console.log('[ASSISTANT] Full sync received, patients:', data.patients?.length);
+
+                    if (data.patients && data.patients.length > 0) {
+                        patients = data.patients;
+                        renderPatients();
+                    }
+
+                    showToast('Données synchronisées', 'success');
+                });
+
+                socket.on('sync:ok', () => {
+                    console.log('[ASSISTANT] Data is up to date');
+                });
+
+                // Gestion des erreurs serveur
+                socket.on('system:error', (error) => {
+                    console.error('[ASSISTANT] Server error:', error);
+                    showToast(`Erreur: ${error.message || error.code}`, 'error');
+                });
+
+                socket.on('chat:error', (error) => {
+                    console.error('[ASSISTANT] Chat error:', error);
+                    showToast(`Chat error: ${error.message}`, 'error');
+                });
+
+                // Reconnexion - demander sync
+                socket.on('reconnect', () => {
+                    console.log('[ASSISTANT] Reconnected, requesting sync');
+                    showToast('Reconnecté - Synchronisation...', 'info');
+
+                    // Demander la sync pour garantir cohérence
+                    socket.emit('sync:request', {
+                        lastVersion: sessionStorage.getItem('dataVersion'),
+                        timestamp: Date.now()
+                    });
+                });
+            };
+            document.head.appendChild(script);
+        }
+
+        async function loadPatients(silent = false) {
+            try {
+                const res = await fetch(`${API_URL}/assistant/patients`, {
+                    headers: { 'Authorization': 'Bearer ' + sessionStorage.getItem('token') }
+                });
+                if (!res.ok) throw new Error('Erreur');
+                patients = await res.json();
+                operationStartedPatientId = patients.find(p => p.statut === 'en_cours')?.patient_id || patients.find(p => p.statut === 'en_cours')?.id || null;
+                if (currentPatientId && !patients.some(p => (p.patient_id || p.id) === currentPatientId)) {
+                    currentPatientId = null;
+                    patientConsent = false;
+                    isReady = false;
+                }
+                document.getElementById('patientCount').textContent = patients.length;
+                renderPatients();
+                updateReadyUI();
+            } catch (e) {
+                if (!silent) showToast('Erreur chargement patients', 'error');
+            }
+        }
+
+        function renderPatients() {
+            const tbody = document.getElementById('patientsBody');
+            tbody.innerHTML = '';
+            if (!patients.length) {
+                tbody.innerHTML = `<tr><td colspan="5" style="text-align:center;padding:2rem;color:gray;">Aucun patient</td></tr>`;
+                return;
+            }
+            console.log('[ASSISTANT] renderPatients - isReady:', isReady, 'currentPatientId:', currentPatientId, 'operationStartedPatientId:', operationStartedPatientId, 'connectedSurgeons:', connectedSurgeons);
+            patients.forEach(p => {
+                const id = p.patient_id || p.id || 'ID-??';
+                const nom = p.nom || 'Inconnu';
+                const prenom = p.prenom || '';
+                const intervention = p.intervention || p.pathologie || 'N/A';
+                const priority = p.priorite || 'normal';
+                const statut = p.statut;
+                // Verrouiller seulement si un chirurgien est réellement en salle pour ce patient
+                const hasSurgeonInRoom = connectedSurgeons.some(s => s.inRoom && s.patientId === id);
+                const isOperationLocked = !!operationStartedPatientId && hasSurgeonInRoom;
+                const isInRoom = statut === 'en_cours' || hasSurgeonInRoom;
+                if (id === (patients[0]?.patient_id || patients[0]?.id)) {
+                    console.log('[ASSISTANT] Premier patient - hasSurgeonInRoom:', hasSurgeonInRoom, 'isOperationLocked:', isOperationLocked, 'disabled:', !isReady || isOperationLocked);
+                }
+
+                let prioBadge = priority === 'urgent' ? 'badge-urgent' : priority === 'high' ? 'badge-high' : 'badge-normal';
+                const actionHtml = `
+                    <label class="patient-radio${(!isReady || isOperationLocked) ? ' disabled' : ''}">
+                        <input type="radio" name="consentPatient" value="${id}" ${currentPatientId === id ? 'checked' : ''} ${(!isReady || isOperationLocked) ? 'disabled' : ''}
+                               onchange="selectConsentPatient('${id}')">
+                        <span>${operationStartedPatientId === id ? 'Intervention' : currentPatientId === id ? 'Sélectionné' : isInRoom ? 'En salle' : isOperationLocked ? 'Verrouillé' : isReady ? 'Choisir' : 'En attente'}</span>
+                    </label>`;
+
+                tbody.innerHTML += `
+                    <tr>
+                        <td>${id}</td>
+                        <td><strong>${prenom} ${nom}</strong></td>
+                        <td>${intervention}</td>
+                        <td><span class="badge ${prioBadge}">${priority.toUpperCase()}</span></td>
+                        <td class="patient-select-cell">${actionHtml}</td>
+                    </tr>`;
+            });
+        }
+
+        function selectConsentPatient(patientId) {
+            console.log('[ASSISTANT] selectConsentPatient appelé:', patientId, 'isReady:', isReady, 'operationStartedPatientId:', operationStartedPatientId, 'connectedSurgeons:', connectedSurgeons);
+
+            if (!isReady) {
+                console.log('[ASSISTANT] BLOQUÉ: isReady est false');
+                showToast('Passez d\'abord en mode PRÊT', 'error');
+                return;
+            }
+
+            // Bloquer seulement si un chirurgien est réellement en salle pour ce patient
+            const hasSurgeonInRoomForPatient = connectedSurgeons.some(s => s.inRoom && s.patientId === patientId);
+            console.log('[ASSISTANT] hasSurgeonInRoomForPatient:', hasSurgeonInRoomForPatient);
+            if (operationStartedPatientId && hasSurgeonInRoomForPatient) {
+                console.log('[ASSISTANT] BLOQUÉ: opération en cours pour ce patient');
+                showToast('Intervention en cours: la sélection est verrouillée', 'error');
+                return;
+            }
+
+            const previousPatientId = currentPatientId;
+            if (previousPatientId === patientId) {
+                updateReadyUI();
+                return;
+            }
+
+            currentPatientId = patientId;
+            patientConsent = false;
+
+            if (socket && previousPatientId) {
+                socket.emit('assistant:consent-revoked', {
+                    assistantId: currentUser?.id,
+                    patientId: previousPatientId
+                });
+            }
+
+            // Informer le serveur du nouveau patient sélectionné
+            if (socket) {
+                const newPatient = patients.find(p => (p.patient_id || p.id) === patientId);
+                socket.emit('assistant:ready', {
+                    assistantId: currentUser?.id,
+                    patientId: patientId,
+                    patientData: newPatient ? {
+                        nom: newPatient.nom,
+                        prenom: newPatient.prenom,
+                        intervention: newPatient.pathologie || newPatient.intervention
+                    } : null
+                });
+            }
+
+            updateReadyUI();
+            renderPatients();
+        }
+
+        async function toggleReadyForPatient(patientId, dbId, currentlyReady) {
+            console.log('[ASSISTANT] toggleReadyForPatient:', patientId, 'currentlyReady:', currentlyReady, 'isReady avant:', isReady);
+
+            // Bloquer seulement si un chirurgien est réellement en salle pour ce patient
+            const hasSurgeonInRoom = connectedSurgeons.some(s => s.inRoom && s.patientId === patientId);
+            if (operationStartedPatientId && hasSurgeonInRoom) {
+                showToast('Intervention en cours: impossible de modifier le mode PRÊT', 'error');
+                return;
+            }
+
+            const newStatus = currentlyReady ? 'en_attente' : 'pret';
+            const idx = patients.findIndex(p => (p.patient_id || p.id) === patientId);
+            if (idx !== -1) patients[idx].statut = newStatus;
+            currentPatientId = currentlyReady ? null : patientId;
+            isReady = !currentlyReady;
+            console.log('[ASSISTANT] >>> isReady est maintenant:', isReady, 'currentPatientId:', currentPatientId);
+            if (isReady) {
+                console.log('[ASSISTANT] >>> MODE PRÊT ACTIVÉ - Les radio buttons devraient être cliquables maintenant !');
+            }
+            if (currentlyReady) {
+                patientConsent = false;
+            }
+            renderPatients();
+            updateReadyUI();
+
+            try {
+                const selectedPatient = patients.find(p => (p.patient_id || p.id) === patientId) || {};
+                await fetch(`${API_URL}/assistant/status`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': 'Bearer ' + sessionStorage.getItem('token')
+                    },
+                    body: JSON.stringify({ patient_db_id: dbId, statut: newStatus })
+                });
+                if (socket) {
+                    socket.emit(currentlyReady ? 'assistant:unready' : 'assistant:ready', {
+                        assistantId: currentUser?.id,
+                        patientId,
+                        patientData: {
+                            nom: selectedPatient.nom,
+                            prenom: selectedPatient.prenom,
+                            intervention: selectedPatient.pathologie || selectedPatient.intervention
+                        }
+                    });
+                    if (currentlyReady) {
+                        socket.emit('assistant:consent-revoked', {
+                            assistantId: currentUser?.id,
+                            patientId
+                        });
+                    }
+                }
+            } catch (e) {
+                showToast('Erreur mise à jour', 'error');
+            }
+        }
+
+        function togglePatientConsent() {
+            // Bloquer seulement si un chirurgien est réellement en salle pour le patient actuel
+            const hasSurgeonInRoom = connectedSurgeons.some(s => s.inRoom && s.patientId === currentPatientId);
+            if (operationStartedPatientId && hasSurgeonInRoom) {
+                showToast('Intervention en cours: consentement verrouillé jusqu\'à l\'archivage', 'error');
+                return;
+            }
+
+            if (!isReady || !currentPatientId) {
+                showToast('Passez d\'abord en mode PRÊT pour un patient', 'error');
+                return;
+            }
+
+            patientConsent = !patientConsent;
+            updateReadyUI();
+
+            if (socket) {
+                socket.emit(patientConsent ? 'assistant:consent' : 'assistant:consent-revoked', {
+                    assistantId: currentUser?.id,
+                    patientId: currentPatientId
+                });
+            }
+        }
+
+        function toggleGlobalReady() {
+            console.log('[ASSISTANT] toggleGlobalReady - isReady:', isReady, 'currentPatientId:', currentPatientId);
+
+            // Bloquer seulement si un chirurgien est réellement en salle pour le patient actuel
+            const hasSurgeonInRoom = connectedSurgeons.some(s => s.inRoom && s.patientId === currentPatientId);
+            if (operationStartedPatientId && hasSurgeonInRoom) {
+                showToast('Intervention en cours: impossible de modifier le mode PRÊT', 'error');
+                return;
+            }
+
+            if (isReady && currentPatientId) {
+                const p = patients.find(x => (x.patient_id || x.id) === currentPatientId);
+                if (p) toggleReadyForPatient(currentPatientId, p.db_id || p.id, true);
+            } else if (patients.length) {
+                const first = patients[0];
+                toggleReadyForPatient(first.patient_id || first.id, first.db_id || first.id, false);
+            } else showToast('Aucun patient', 'error');
+        }
+
+        function updateReadyUI() {
+            const btn = document.getElementById('readyBtn');
+            const consentBtn = document.getElementById('consentBtn');
+            const sub = document.getElementById('actionSubtitle');
+            // Verrouiller dès qu'un chirurgien entre en salle (n'importe quel patient)
+            const hasSurgeonInRoom = connectedSurgeons.some(s => s.inRoom);
+            const locked = hasSurgeonInRoom;
+            if (isReady && currentPatientId) {
+                btn.innerHTML = locked
+                    ? '<i class="fas fa-lock"></i> Annuler le mode PRÊT'
+                    : '<i class="fas fa-times-circle"></i> Annuler le mode PRÊT';
+                btn.className = locked ? 'btn-ready' : 'btn-ready cancel';
+                btn.disabled = locked;
+                if (consentBtn) {
+                    consentBtn.disabled = locked;
+                    consentBtn.className = locked ? 'btn-ready' : (patientConsent ? 'btn-ready cancel' : 'btn-ready');
+                    consentBtn.innerHTML = locked
+                        ? '<i class="fas fa-lock"></i> Verrouillé - Chirurgien en salle'
+                        : patientConsent
+                            ? '<i class="fas fa-file-circle-check"></i> Patient consenti'
+                            : '<i class="fas fa-file-signature"></i> Consentir le patient';
+                }
+                sub.textContent = patientConsent
+                    ? (locked
+                        ? `🔒 Chirurgien en salle – Actions verrouillées jusqu'à la sortie`
+                        : `Patient ${currentPatientId} prêt et consenti – Accès chirurgien autorisé`)
+                    : (locked
+                        ? `🔒 Chirurgien en salle – Actions verrouillées jusqu'à la sortie`
+                        : `Patient ${currentPatientId} prêt – Sélectionnez un patient puis validez le consentement`);
+            } else {
+                btn.innerHTML = '<i class="fas fa-check-circle"></i> Passer en mode PRÊT';
+                btn.className = 'btn-ready';
+                btn.disabled = locked;
+                if (consentBtn) {
+                    consentBtn.disabled = true;
+                    consentBtn.className = 'btn-ready';
+                    consentBtn.innerHTML = '<i class="fas fa-file-signature"></i> Consentir le patient';
+                }
+                sub.textContent = locked
+                    ? '🔒 Chirurgien en salle – Attendre la sortie pour nouvelle sélection'
+                    : 'Confirmez votre disponibilité pour autoriser l\'accès chirurgien';
+            }
+        }
+
+        function updateStatusCards(status) {
+            if (status.arduino) updateArduinoUI(status.arduino.connected || status.arduino, '/dev/ttyACM0');
+            if (status.surgeons) {
+                const count = status.surgeons.active || 0;
+                document.getElementById('surgeonStatus').textContent = count ? `${count} en ligne` : 'Hors ligne';
+                const dot = document.getElementById('surgeonDot');
+                dot.style.background = count ? 'var(--emerald-500)' : 'var(--amber-500)';
+            }
+        }
+
+        function updateArduinoUI(connected, port) {
+            arduinoConnected = connected;
+            document.getElementById('arduinoStatus').textContent = connected ? 'Connecté' : 'Déconnecté';
+            document.getElementById('arduinoPort').textContent = connected ? (port || '/dev/ttyACM0') : 'Port indisponible';
+            document.getElementById('arduinoDot').style.background = connected ? 'var(--emerald-500)' : 'var(--rose-500)';
+        }
+
+        function updateSurgeonStatus(data) {
+            if (data.surgeons) {
+                connectedSurgeons = data.surgeons;
+            }
+            renderSurgeons();
+        }
+
+        function renderSurgeons() {
+            const tbody = document.getElementById('surgeonsBody');
+            const countEl = document.getElementById('surgeonCount');
+            
+            if (!tbody) return;
+            
+            countEl.textContent = connectedSurgeons.length;
+            
+            if (connectedSurgeons.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="4" style="text-align:center;padding:2rem;color:gray;">Aucun chirurgien connecté</td></tr>`;
+                document.getElementById('surgeonStatus').textContent = 'Hors ligne';
+                document.getElementById('surgeonDot').style.background = 'var(--amber-500)';
+                return;
+            }
+            
+            tbody.innerHTML = '';
+            connectedSurgeons.forEach(s => {
+                const status = s.inRoom ? 'En salle' : 'En ligne';
+                const statusClass = s.inRoom ? 'badge-status' : '';
+                const patientInfo = s.patientId ? s.patientId : '-';
+                const actionBtn = s.inRoom 
+                    ? `<span style="color:var(--emerald-500);font-weight:600;">Opération en cours</span>`
+                    : `<span style="color:var(--gray-400);">En attente</span>`;
+                
+                tbody.innerHTML += `
+                    <tr>
+                        <td><strong>${s.userId}</strong></td>
+                        <td><span class="badge ${statusClass}" style="background:${s.inRoom ? '#d4edda' : '#f0f0f0'};color:${s.inRoom ? '#155724' : '#666'};">${status}</span></td>
+                        <td>${patientInfo}</td>
+                        <td>${actionBtn}</td>
+                    </tr>`;
+            });
+            
+            // Mettre à jour le statut global
+            const activeCount = connectedSurgeons.filter(s => s.inRoom).length;
+            document.getElementById('surgeonStatus').textContent = activeCount > 0 
+                ? `${activeCount} en opération` 
+                : `${connectedSurgeons.length} en ligne`;
+            document.getElementById('surgeonDot').style.background = 'var(--emerald-500)';
+        }
+
+        async function loadDossiers() {
+            const div = document.getElementById('dossiersList');
+            try {
+                const res = await fetch(API_URL + '/patients', { headers: { 'Authorization': 'Bearer ' + sessionStorage.getItem('token') } });
+                const data = await res.json();
+                div.innerHTML = data.map(p => `<div style="padding:1rem;border:1px solid var(--gray-200);margin-bottom:0.5rem;"><strong>${p.prenom} ${p.nom}</strong> – ${p.pathologie || 'N/A'}</div>`).join('');
+            } catch { div.innerHTML = 'Erreur chargement'; }
+        }
+
+        // =========================================================================
+        // SYSTÈME DE NOTIFICATION ROBUSTE - File d'attente avec limite
+        // =========================================================================
+
+        const NotificationQueue = {
+            queue: [],
+            maxVisible: 5,
+            maxQueueSize: 20,
+            displayDuration: 4000,
+
+            add(msg, type = 'info') {
+                const id = `toast-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`;
+
+                // Limiter la taille de la file
+                if (this.queue.length >= this.maxQueueSize) {
+                    this.queue.shift(); // Retirer le plus ancien
+                }
+
+                this.queue.push({ id, msg, type, timestamp: Date.now() });
+                this.process();
+                return id;
+            },
+
+            process() {
+                const container = document.getElementById('toastContainer');
+                if (!container) return;
+
+                // Compter les notifications visibles
+                const visible = container.querySelectorAll('.toast').length;
+                const toShow = this.maxVisible - visible;
+
+                if (toShow > 0 && this.queue.length > 0) {
+                    const items = this.queue.splice(0, toShow);
+                    items.forEach(item => this.display(item, container));
+                }
+            },
+
+            display(item, container) {
+                const el = document.createElement('div');
+                el.id = item.id;
+                el.className = `toast toast-${item.type}`;
+                el.innerHTML = `
+                    <span class="toast-msg">${item.msg}</span>
+                    <button class="toast-close" onclick="NotificationQueue.dismiss('${item.id}')">&times;</button>
+                `;
+
+                // Animation d'entrée
+                el.style.opacity = '0';
+                el.style.transform = 'translateX(100%)';
+                container.appendChild(el);
+
+                requestAnimationFrame(() => {
+                    el.style.transition = 'all 0.3s ease';
+                    el.style.opacity = '1';
+                    el.style.transform = 'translateX(0)';
+                });
+
+                // Auto-dismiss
+                setTimeout(() => this.dismiss(item.id), this.displayDuration);
+            },
+
+            dismiss(id) {
+                const el = document.getElementById(id);
+                if (!el) return;
+
+                el.style.opacity = '0';
+                el.style.transform = 'translateX(100%)';
+
+                setTimeout(() => {
+                    el.remove();
+                    this.process(); // Afficher suivant dans la file
+                }, 300);
+            },
+
+            clearAll() {
+                document.querySelectorAll('.toast').forEach(el => {
+                    el.style.opacity = '0';
+                    setTimeout(() => el.remove(), 300);
+                });
+                this.queue = [];
+            }
+        };
+
+        // Wrapper pour compatibilité
+        function showToast(msg, type = 'info') {
+            NotificationQueue.add(msg, type);
+        }
+
+        // =========================================================================
+        // SYSTÈME DE ROBUSTESSE CLIENT-SIDE
+        // =========================================================================
+
+        const EventDeduplicator = {
+            processedEvents: new Set(),
+            maxSize: 1000,
+
+            isDuplicate(eventId) {
+                if (!eventId) return false;
+                if (this.processedEvents.has(eventId)) return true;
+
+                this.processedEvents.add(eventId);
+
+                // Limiter la taille
+                if (this.processedEvents.size > this.maxSize) {
+                    const toDelete = this.maxSize * 0.2; // Supprimer 20%
+                    const iter = this.processedEvents.values();
+                    for (let i = 0; i < toDelete; i++) {
+                        const val = iter.next().value;
+                        if (val) this.processedEvents.delete(val);
+                    }
+                }
+
+                return false;
+            },
+
+            clear() {
+                this.processedEvents.clear();
+            }
+        };
+
+        const PendingAcks = {
+            pending: new Map(),
+            timeout: 5000,
+
+            add(ackId, resolve, reject) {
+                const timer = setTimeout(() => {
+                    this.pending.delete(ackId);
+                    reject(new Error('ACK timeout'));
+                }, this.timeout);
+
+                this.pending.set(ackId, { resolve, reject, timer });
+            },
+
+            resolve(ackId, data) {
+                const pending = this.pending.get(ackId);
+                if (pending) {
+                    clearTimeout(pending.timer);
+                    pending.resolve(data);
+                    this.pending.delete(ackId);
+                }
+            },
+
+            rejectAll() {
+                for (const [ackId, pending] of this.pending.entries()) {
+                    clearTimeout(pending.timer);
+                    pending.reject(new Error('Connection lost'));
+                    this.pending.delete(ackId);
+                }
+            }
+        };
+
+        // Version avec ACK du socket.emit
+        function emitWithAck(event, data) {
+            return new Promise((resolve, reject) => {
+                if (!socket || !socket.connected) {
+                    reject(new Error('Socket not connected'));
+                    return;
+                }
+
+                const ackId = `ack-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+                const eventData = {
+                    ...data,
+                    _eventId: ackId,
+                    _timestamp: Date.now()
+                };
+
+                PendingAcks.add(ackId, resolve, reject);
+
+                socket.emit(event, eventData, (ack) => {
+                    PendingAcks.resolve(ackId, ack);
+                });
+            });
+        }
+
+        function logout() {
+            if (socket) {
+                PendingAcks.rejectAll(); // Annuler les ACK en attente
+                socket.emit('assistant:disconnecting');
+            }
+            sessionStorage.clear();
+            window.location.href = 'login.html';
+        }
+
+        let heartbeatInterval;
+        function startHeartbeat() {
+            heartbeatInterval = setInterval(() => {
+                if (socket?.connected) socket.emit('heartbeat', { timestamp: Date.now() });
+            }, 10000);
+        }
+
+        document.getElementById('newPatientForm')?.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const data = {
+                prenom: document.getElementById('patientPrenom').value,
+                nom: document.getElementById('patientNom').value,
+                pathologie: document.getElementById('patientPathologie').value
+            };
+
+            // Validation client-side
+            if (data.prenom.length < 2 || data.nom.length < 2 || data.pathologie.length < 3) {
+                showToast('Veuillez remplir tous les champs correctement', 'error');
+                return;
+            }
+
+            try {
+                showToast('Création en cours...', 'info');
+
+                // Émission temps réel avec ACK
+                const response = await emitWithAck('patient:create', data);
+
+                if (response.success) {
+                    showToast(`Patient ${response.patient.nom} créé!`, 'success');
+                    e.target.reset();
+
+                    // Ajouter au tableau local sans recharger
+                    addPatientToTable(response.patient);
+                } else {
+                    if (response.error === 'DUPLICATE') {
+                        showToast('Action déjà effectuée', 'warning');
+                    } else if (response.error === 'VALIDATION') {
+                        showToast('Données invalides: ' + (response.errors?.join(', ') || ''), 'error');
+                    } else {
+                        showToast('Erreur création: ' + response.error, 'error');
+                    }
+                }
+            } catch (error) {
+                console.error('Patient creation error:', error);
+                showToast('Erreur connexion temps réel', 'error');
+            }
+        });
+
+        // Fonction pour ajouter un patient au tableau sans recharger
+        function addPatientToTable(patient) {
+            const tbody = document.getElementById('patientsBody');
+            if (!tbody) return;
+
+            // Supprimer le message "Aucun patient" s'il existe
+            if (tbody.children.length === 1 && tbody.children[0].textContent.includes('Aucun')) {
+                tbody.innerHTML = '';
+            }
+
+            const row = document.createElement('tr');
+            row.setAttribute('data-patient-id', patient.patientId);
+            row.style.opacity = '0';
+            row.style.transform = 'translateY(-10px)';
+            row.innerHTML = `
+                <td><strong>${patient.patientId}</strong></td>
+                <td>${patient.prenom} ${patient.nom}</td>
+                <td>${patient.pathologie}</td>
+                <td><span class="badge">En attente</span></td>
+                <td>
+                    <label class="radio-label" style="opacity:0.5;cursor:not-allowed;">
+                        <input type="radio" name="patient" value="${patient.patientId}" disabled>
+                        Sélectionner
+                    </label>
+                </td>
+            `;
+
+            tbody.insertBefore(row, tbody.firstChild);
+
+            requestAnimationFrame(() => {
+                row.style.transition = 'all 0.3s ease';
+                row.style.opacity = '1';
+                row.style.transform = 'translateY(0)';
+            });
+
+            // Mise à jour du compteur
+            const countEl = document.getElementById('patientsCount');
+            if (countEl) {
+                const current = parseInt(countEl.textContent) || 0;
+                countEl.textContent = current + 1;
+            }
+        }
+
+        document.getElementById('searchPatient')?.addEventListener('input', (e) => {
+            const term = e.target.value.toLowerCase();
+            document.querySelectorAll('#patientsBody tr').forEach(row => {
+                row.style.display = row.textContent.toLowerCase().includes(term) ? '' : 'none';
+            });
+        });
+
+        // Listen for incoming chat messages
+        if (socket) {
+            socket.on('chat:message', (data) => {
+                if (data.from === 'surgeon') {
+                    ChatModal.addMessage(data.text, 'received');
+                }
+            });
+
+            socket.on('chat:voice', (data) => {
+                if (data.from === 'surgeon') {
+                    ChatModal.addMessage('🎤 Message vocal', 'received');
+                }
+            });
+
+            socket.on('chat:file', (data) => {
+                if (data.from === 'surgeon') {
+                    ChatModal.addMessage('', 'received', true, data.fileName);
+                }
+            });
+
+            // System messages
+            socket.on('surgeon:online', () => {
+                ChatModal.addMessage('Chirurgien connecté', 'system');
+            });
+
+            socket.on('surgeon:offline', () => {
+                ChatModal.addMessage('Chirurgien déconnecté', 'system');
+            });
+
+            socket.on('surgeon:enter-room', (data) => {
+                ChatModal.addMessage(`Chirurgien entré en salle (Patient: ${data.patientId})`, 'system');
+            });
+
+            socket.on('surgeon:leave-room', () => {
+                ChatModal.addMessage('Chirurgien sorti de la salle', 'system');
+            });
+        }
+    </script>
+
+    <!-- Floating Chat Modal -->
+    <div id="chat-modal" style="display: none; position: fixed; bottom: 20px; right: 20px; width: 380px; min-height: 450px; max-height: 600px; background: #0f172a; border: 1px solid #334155; border-radius: 8px; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5); z-index: 1000; overflow: hidden;">
+        <!-- Header - Draggable -->
+        <div id="chat-modal-header" style="display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; background: #1e293b; border-bottom: 1px solid #334155; cursor: move; user-select: none;">
+            <div style="display: flex; align-items: center; gap: 8px;">
+                <i class="fas fa-comments" style="color: #60a5fa;"></i>
+                <span style="font-size: 0.8rem; font-weight: 600; color: #e2e8f0; text-transform: uppercase; letter-spacing: 0.5px;">Communication Chirurgien</span>
+                <span id="chat-modal-status" style="width: 8px; height: 8px; background: #10b981; border-radius: 50%;"></span>
+            </div>
+            <div style="display: flex; gap: 4px;">
+                <button id="chat-minimize-btn" onclick="ChatModal.minimize()" style="width: 28px; height: 28px; background: transparent; border: none; color: #94a3b8; cursor: pointer; border-radius: 4px; display: flex; align-items: center; justify-content: center;">
+                    <i class="fas fa-minus" style="font-size: 0.75rem;"></i>
+                </button>
+                <button id="chat-close-btn" onclick="ChatModal.close()" style="width: 28px; height: 28px; background: transparent; border: none; color: #94a3b8; cursor: pointer; border-radius: 4px; display: flex; align-items: center; justify-content: center;">
+                    <i class="fas fa-times" style="font-size: 0.75rem;"></i>
+                </button>
+            </div>
+        </div>
+
+        <!-- Chat Content -->
+        <div id="chat-modal-content" style="display: flex; flex-direction: column; height: 400px;">
+            <!-- Messages -->
+            <div id="chat-modal-messages" style="flex: 1; overflow-y: auto; padding: 12px; background: rgba(15, 23, 42, 0.5);">
+                <div style="text-align: center; color: #64748b; font-size: 0.75rem; font-style: italic;">Connecté au chirurgien</div>
+            </div>
+
+            <!-- Input Area -->
+            <div style="padding: 12px; background: #0f172a; border-top: 1px solid #334155;">
+                <div style="display: flex; gap: 8px; margin-bottom: 8px;">
+                    <input id="chat-modal-input" type="text" placeholder="Votre message..." style="flex: 1; background: #1e293b; border: 1px solid #334155; color: white; padding: 10px 12px; border-radius: 6px; font-size: 0.875rem; outline: none;">
+                    <button id="chat-modal-send" onclick="ChatModal.sendMessage()" style="background: #2563eb; border: none; color: white; padding: 10px 14px; border-radius: 6px; cursor: pointer;">
+                        <i class="fas fa-paper-plane" style="font-size: 0.875rem;"></i>
+                    </button>
+                </div>
+                <div style="display: flex; gap: 8px;">
+                    <button id="chat-modal-voice" onclick="ChatModal.sendVoice()" style="flex: 1; background: #1e293b; border: 1px solid #334155; color: #94a3b8; padding: 8px; border-radius: 6px; cursor: pointer; font-size: 0.75rem; text-transform: uppercase; display: flex; align-items: center; justify-content: center; gap: 6px;">
+                        <i class="fas fa-microphone" style="font-size: 0.75rem;"></i>
+                        Vocal
+                    </button>
+                    <button id="chat-modal-file" onclick="document.getElementById('chat-modal-file-input').click()" style="flex: 1; background: #1e293b; border: 1px solid #334155; color: #94a3b8; padding: 8px; border-radius: 6px; cursor: pointer; font-size: 0.75rem; text-transform: uppercase; display: flex; align-items: center; justify-content: center; gap: 6px;">
+                        <i class="fas fa-paperclip" style="font-size: 0.75rem;"></i>
+                        Fichier
+                    </button>
+                </div>
+                <input id="chat-modal-file-input" type="file" style="display: none;" accept="image/*,.pdf,.doc,.docx" onchange="ChatModal.sendFile(event)">
+            </div>
+        </div>
+
+        <!-- Minimized State -->
+        <div id="chat-modal-minimized" style="display: none; padding: 12px 16px;">
+            <div style="display: flex; align-items: center; justify-content: space-between;">
+                <span style="font-size: 0.8rem; color: #64748b;">Chat minimisé</span>
+                <button onclick="ChatModal.restore()" style="background: transparent; border: none; color: #60a5fa; cursor: pointer; font-size: 0.8rem;">Restaurer</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ============================================================
+        // FLOATING CHAT MODAL SYSTEM - Assistant
+        // ============================================================
+
+        const ChatModal = {
+            modal: document.getElementById('chat-modal'),
+            header: document.getElementById('chat-modal-header'),
+            content: document.getElementById('chat-modal-content'),
+            minimized: document.getElementById('chat-modal-minimized'),
+            messages: document.getElementById('chat-modal-messages'),
+            input: document.getElementById('chat-modal-input'),
+            sendBtn: document.getElementById('chat-modal-send'),
+            unreadBadge: document.getElementById('chat-unread-badge'),
+            openBtn: document.getElementById('chat-modal-btn'),
+
+            isOpen: false,
+            isMinimized: false,
+            unreadCount: 0,
+            isDragging: false,
+            dragOffset: { x: 0, y: 0 },
+
+            init() {
+                if (!this.modal) return;
+
+                // Drag functionality
+                this.initDrag();
+
+                // Enter key for input
+                this.input?.addEventListener('keypress', (e) => {
+                    if (e.key === 'Enter') this.sendMessage();
+                });
+
+                console.log('[CHAT MODAL] Initialized');
+            },
+
+            initDrag() {
+                if (!this.header || !this.modal) return;
+
+                this.header.addEventListener('mousedown', (e) => {
+                    this.isDragging = true;
+                    const rect = this.modal.getBoundingClientRect();
+                    this.dragOffset.x = e.clientX - rect.left;
+                    this.dragOffset.y = e.clientY - rect.top;
+                    this.modal.style.transition = 'none';
+                });
+
+                document.addEventListener('mousemove', (e) => {
+                    if (!this.isDragging) return;
+
+                    const x = e.clientX - this.dragOffset.x;
+                    const y = e.clientY - this.dragOffset.y;
+
+                    // Keep within viewport
+                    const maxX = window.innerWidth - this.modal.offsetWidth;
+                    const maxY = window.innerHeight - this.modal.offsetHeight;
+
+                    this.modal.style.left = Math.max(0, Math.min(x, maxX)) + 'px';
+                    this.modal.style.top = Math.max(0, Math.min(y, maxY)) + 'px';
+                    this.modal.style.right = 'auto';
+                    this.modal.style.bottom = 'auto';
+                });
+
+                document.addEventListener('mouseup', () => {
+                    if (this.isDragging) {
+                        this.isDragging = false;
+                        this.modal.style.transition = '';
+                    }
+                });
+            },
+
+            open() {
+                if (!this.modal) return;
+                this.modal.style.display = 'block';
+                this.isOpen = true;
+                this.unreadCount = 0;
+                this.updateUnreadBadge();
+                this.input?.focus();
+            },
+
+            close() {
+                if (!this.modal) return;
+                this.modal.style.display = 'none';
+                this.isOpen = false;
+                this.isMinimized = false;
+                if (this.content) this.content.style.display = 'flex';
+                if (this.minimized) this.minimized.style.display = 'none';
+            },
+
+            minimize() {
+                if (!this.content || !this.minimized) return;
+                this.content.style.display = 'none';
+                this.minimized.style.display = 'block';
+                this.isMinimized = true;
+                this.modal.style.height = 'auto';
+                this.modal.style.minHeight = 'auto';
+            },
+
+            restore() {
+                if (!this.content || !this.minimized) return;
+                this.content.style.display = 'flex';
+                this.minimized.style.display = 'none';
+                this.isMinimized = false;
+                this.modal.style.height = '';
+                this.modal.style.minHeight = '450px';
+                this.unreadCount = 0;
+                this.updateUnreadBadge();
+            },
+
+            addMessage(text, type = 'sent', isFile = false, fileName = '') {
+                if (!this.messages) return;
+
+                const msgDiv = document.createElement('div');
+                msgDiv.style.display = 'flex';
+                msgDiv.style.justifyContent = type === 'sent' ? 'flex-end' : type === 'system' ? 'center' : 'flex-start';
+                msgDiv.style.marginBottom = '8px';
+
+                const bubble = document.createElement('div');
+
+                if (type === 'system') {
+                    bubble.style.cssText = 'padding: 4px 8px; font-size: 0.7rem; color: #64748b; font-style: italic;';
+                    bubble.textContent = text;
+                } else {
+                    const isSent = type === 'sent';
+                    bubble.style.cssText = `
+                        max-width: 80%;
+                        padding: 10px 12px;
+                        font-size: 0.875rem;
+                        background: ${isSent ? 'rgba(37, 99, 235, 0.3)' : 'rgba(30, 41, 59, 0.8)'};
+                        border: 1px solid ${isSent ? 'rgba(37, 99, 235, 0.5)' : 'rgba(51, 65, 85, 1)'};
+                        color: ${isSent ? '#bfdbfe' : '#e2e8f0'};
+                        border-radius: 8px;
+                        border-bottom-${isSent ? 'right' : 'left'}-radius: 2px;
+                    `;
+
+                    if (isFile) {
+                        bubble.innerHTML = `<i class="fas fa-file" style="margin-right: 6px; font-size: 0.75rem;"></i> ${fileName}`;
+                    } else {
+                        bubble.textContent = text;
+                    }
+
+                    const time = document.createElement('div');
+                    time.style.cssText = 'font-size: 0.65rem; color: #64748b; margin-top: 4px; text-align: right;';
+                    time.textContent = new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+                    bubble.appendChild(time);
+                }
+
+                msgDiv.appendChild(bubble);
+                this.messages.appendChild(msgDiv);
+                this.messages.scrollTop = this.messages.scrollHeight;
+
+                // Update unread if received while closed/minimized
+                if ((type === 'received') && (!this.isOpen || this.isMinimized)) {
+                    this.unreadCount++;
+                    this.updateUnreadBadge();
+                }
+            },
+
+            updateUnreadBadge() {
+                if (!this.unreadBadge) return;
+                if (this.unreadCount > 0) {
+                    this.unreadBadge.textContent = this.unreadCount > 99 ? '99+' : this.unreadCount;
+                    this.unreadBadge.style.display = 'flex';
+                } else {
+                    this.unreadBadge.style.display = 'none';
+                }
+            },
+
+            sendMessage() {
+                const text = this.input?.value?.trim();
+                if (!text) return;
+
+                this.addMessage(text, 'sent');
+                if (this.input) this.input.value = '';
+
+                // Send via socket
+                if (socket) {
+                    socket.emit('chat:message', {
+                        from: 'assistant',
+                        text: text,
+                        timestamp: new Date().toISOString()
+                    });
+                }
+            },
+
+            sendVoice() {
+                this.addMessage('🎤 Message vocal (3s)...', 'sent');
+                if (socket) {
+                    socket.emit('chat:voice', { from: 'assistant', duration: 3 });
+                }
+            },
+
+            sendFile(e) {
+                const file = e.target.files[0];
+                if (!file) return;
+
+                this.addMessage('', 'sent', true, file.name);
+                if (socket) {
+                    socket.emit('chat:file', {
+                        from: 'assistant',
+                        fileName: file.name,
+                        fileSize: file.size
+                    });
+                }
+                e.target.value = '';
+            }
+        };
+
+        // Initialize chat modal
+        ChatModal.init();
+    </script>
+</body>
+</html>
