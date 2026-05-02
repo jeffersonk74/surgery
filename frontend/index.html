@@ -567,12 +567,19 @@
 
         function updateCallButtonUI() {
             console.log('[CHIRURGIEN] updateCallButtonUI - operationStarted:', state.operationStarted, 'assistantReady:', state.assistantReady, 'patientConsented:', state.patientConsented);
+            const canStart = state.assistantReady && state.patientConsented;
             if (!state.operationStarted) {
-                callBtn.className = 'inline-flex items-center gap-2 border border-emerald-700 bg-emerald-800 px-5 py-3 text-[10px] font-semibold uppercase tracking-widest text-emerald-100 hover:bg-emerald-700 rounded-none';
-                callBtn.innerHTML = '<i data-lucide="phone-call" class="h-4 w-4"></i>Démarrer';
+                callBtn.className = canStart
+                    ? 'inline-flex items-center gap-2 border border-emerald-700 bg-emerald-800 px-5 py-3 text-[10px] font-semibold uppercase tracking-widest text-emerald-100 hover:bg-emerald-700 rounded-none'
+                    : 'inline-flex items-center gap-2 border border-slate-600 bg-slate-700 px-5 py-3 text-[10px] font-semibold uppercase tracking-widest text-slate-400 rounded-none opacity-50 cursor-not-allowed';
+                callBtn.innerHTML = canStart
+                    ? '<i data-lucide="phone-call" class="h-4 w-4"></i>Démarrer'
+                    : '<i data-lucide="lock" class="h-4 w-4"></i>En attente';
                 callBtn.style.display = '';
-                callBtn.disabled = false;
-                callBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+                callBtn.disabled = !canStart;
+                if (canStart) {
+                    callBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+                }
                 recBadge.classList.add('hidden');
                 recBadge.classList.remove('inline-flex');
             } else {
