@@ -131,11 +131,14 @@ async function recoverSessionState() {
     // Récupérer les assistants qui ont des patients prêts
     const readyAssistants = await prisma.assistantStatus.findMany({
       where: { statut: 'pret' },
+      orderBy: { updatedAt: 'desc' },
       include: { 
         assistant: { select: { id: true, nom: true, prenom: true } },
         patient: { select: { patientId: true, nom: true, prenom: true } }
       }
     });
+
+    const latestReadyAssistant = readyAssistants[0] || null;
     
     const sessionState = {
       robot: robotState || { isConnected: false, simulationMode: true },
@@ -152,6 +155,20 @@ async function recoverSessionState() {
         patientId: a.patient.patientId,
         patientName: `${a.patient.prenom} ${a.patient.nom}`
       })),
+      assistant: latestReadyAssistant ? {
+        ready: true,
+        activePatient: {
+          id: latestReadyAssistant.patient.patientId,
+          nom: latestReadyAssistant.patient.nom,
+          prenom: latestReadyAssistant.patient.prenom,
+          pathologie: null
+        },
+        userId: latestReadyAssistant.assistantId
+      } : {
+        ready: false,
+        activePatient: null,
+        userId: null
+      },
       timestamp: new Date().toISOString()
     };
     
@@ -159,6 +176,7 @@ async function recoverSessionState() {
     console.log(`  - Robot connecté: ${sessionState.robot.isConnected}`);
     console.log(`  - Patient actif: ${sessionState.activePatient?.id || 'Aucun'}`);
     console.log(`  - Assistants prêts: ${sessionState.readyAssistants.length}`);
+    console.log(`  - Assistant prêt: ${sessionState.assistant.ready ? sessionState.assistant.activePatient?.id || 'Oui' : 'Non'}`);
     
     return sessionState;
   } catch (error) {
@@ -187,6 +205,15 @@ async function startServer() {
       systemState.operation.active = true;
       systemState.operation.patientId = sessionState.activePatient.id;
       console.log(`[SERVER] Opération réactivée - Patient ${sessionState.activePatient.id} en cours`);
+    }
+
+    if (sessionState?.assistant) {
+      systemState.assistant.ready = sessionState.assistant.ready;
+      systemState.assistant.patientConsent = sessionState.assistant.ready;
+      systemState.assistant.patientConsentPatientId = sessionState.assistant.activePatient?.id || null;
+      systemState.assistant.activePatient = sessionState.assistant.activePatient;
+      systemState.assistant.userId = sessionState.assistant.userId;
+      console.log('[SERVER] État assistant réhydraté depuis la base');
     }
     
     server.listen(PORT, '0.0.0.0', () => {

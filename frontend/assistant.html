@@ -681,11 +681,8 @@
                     <p id="actionSubtitle">Confirmez votre disponibilité pour autoriser l'accès chirurgien</p>
                 </div>
                 <div style="display:flex;gap:0.75rem;flex-wrap:wrap;justify-content:flex-end;">
-                    <button id="consentBtn" class="btn-ready" onclick="togglePatientConsent()" disabled>
-                        <i class="fas fa-file-signature"></i> Consentement Patient
-                    </button>
-                    <button id="readyBtn" class="btn-ready" onclick="toggleGlobalReady()">
-                        <i class="fas fa-check-circle"></i> Passer en mode PRÊT
+                    <button id="validateBtn" class="btn-ready" onclick="validatePatient()" disabled>
+                        <i class="fas fa-check-circle"></i> Valider
                     </button>
                 </div>
             </div>
@@ -800,7 +797,6 @@
         let patients = [];
         let connectedSurgeons = [];
         let currentUser = null;
-        let isReady = false;
         let patientConsent = false;
         let currentPatientId = null;
         let operationStartedPatientId = null;
@@ -849,27 +845,34 @@
                     socket.emit('get:system-status');
                     socket.emit('assistant:status', {
                         online: true,
-                        ready: isReady,
-                        patientConsent: patientConsent,
-                        patientConsentPatientId: currentPatientId,
+                        ready: patientConsent,
+                        patientId: currentPatientId,
                         userId: currentUser?.id || 'assistant-1'
                     });
                     showToast('Connecté au serveur', 'success');
                 });
                 socket.on('disconnect', () => showToast('Déconnecté', 'error'));
-                socket.on('system:status', updateStatusCards);
+                socket.on('system:status', (data) => {
+                    updateStatusCards(data);
+                    applyAssistantState(data);
+                    ensureDefaultPatientSelection();
+                    renderPatients();
+                    updateReadyUI();
+                });
                 socket.on('surgeon:online', (data) => {
                     showToast(`Chirurgien ${data.userId} connecté`, 'info');
                     // Ajouter le chirurgien s'il n'existe pas déjà
                     if (!connectedSurgeons.find(s => s.userId === data.userId)) {
                         connectedSurgeons.push({ userId: data.userId, inRoom: false, patientId: null });
                         renderSurgeons();
+                        renderPatients();  // ← Mettre à jour hasSurgeonInRoom
                     }
                 });
                 socket.on('surgeon:offline', (data) => {
                     showToast(`Chirurgien ${data.userId} déconnecté`, 'error');
                     connectedSurgeons = connectedSurgeons.filter(s => s.userId !== data.userId);
                     renderSurgeons();
+                    renderPatients();  // ← Mettre à jour hasSurgeonInRoom
                 });
                 socket.on('surgeon:enter-room', (data) => {
                     const surgeon = connectedSurgeons.find(s => s.userId === data.surgeonId);
@@ -951,20 +954,9 @@
                     }
 
                     console.log('[ASSISTANT] assistant:status reçu:', data, 'currentPatientId actuel:', currentPatientId);
-                    if (typeof data.ready === 'boolean') {
-                        isReady = data.ready;
-                    }
-                    if (typeof data.patientConsent === 'boolean') {
-                        patientConsent = data.patientConsent;
-                    }
-                    if (typeof data.patientConsentPatientId !== 'undefined') {
-                        currentPatientId = data.patientConsentPatientId || (data.ready ? (data.patientId || currentPatientId) : null);
-                    } else if (data.patientId && data.ready) {
-                        currentPatientId = data.patientId;
-                    } else if (typeof data.ready === 'boolean' && !data.ready) {
-                        currentPatientId = null;
-                    }
+                    applyAssistantState(data);
                     console.log('[ASSISTANT] assistant:status - currentPatientId après:', currentPatientId);
+                    ensureDefaultPatientSelection();
                     renderPatients();
                     updateReadyUI();
                 });
@@ -1031,16 +1023,71 @@
                 if (!res.ok) throw new Error('Erreur');
                 patients = await res.json();
                 operationStartedPatientId = patients.find(p => p.statut === 'en_cours')?.patient_id || patients.find(p => p.statut === 'en_cours')?.id || null;
-                if (currentPatientId && !patients.some(p => (p.patient_id || p.id) === currentPatientId)) {
-                    currentPatientId = null;
-                    patientConsent = false;
-                    isReady = false;
-                }
+                ensureDefaultPatientSelection();
                 document.getElementById('patientCount').textContent = patients.length;
                 renderPatients();
                 updateReadyUI();
             } catch (e) {
                 if (!silent) showToast('Erreur chargement patients', 'error');
+            }
+        }
+
+        function getPatientIdentifier(patient) {
+            return patient?.patient_id || patient?.id || null;
+        }
+
+        function applyAssistantState(data) {
+            const assistantState = data?.assistant || data;
+            if (!assistantState) return;
+
+            if (typeof assistantState.ready === 'boolean') {
+                patientConsent = assistantState.ready;
+            }
+
+            const eventPatientId = assistantState.patientId
+                || assistantState.activePatient?.id
+                || null;
+
+            if (patientConsent && eventPatientId) {
+                currentPatientId = eventPatientId;
+                localStorage.setItem('assistant_selected_patient_id', eventPatientId);
+            } else if (!patientConsent && eventPatientId && (!currentPatientId || currentPatientId === eventPatientId)) {
+                currentPatientId = eventPatientId;
+                localStorage.setItem('assistant_selected_patient_id', eventPatientId);
+            }
+
+            if (patientConsent && currentPatientId) {
+                localStorage.setItem('assistant_validated_patient_id', currentPatientId);
+            } else if (!patientConsent) {
+                localStorage.removeItem('assistant_validated_patient_id');
+            }
+        }
+
+        function ensureDefaultPatientSelection() {
+            const firstPatientId = getPatientIdentifier(patients[0]);
+            const storedSelectedId = localStorage.getItem('assistant_selected_patient_id');
+            const storedValidatedId = localStorage.getItem('assistant_validated_patient_id');
+
+            if (patientConsent && storedValidatedId) {
+                currentPatientId = storedValidatedId;
+            }
+
+            if (!currentPatientId && storedSelectedId) {
+                currentPatientId = storedSelectedId;
+            }
+
+            if (!currentPatientId && firstPatientId) {
+                currentPatientId = firstPatientId;
+            }
+
+            if (currentPatientId && !patients.some(p => getPatientIdentifier(p) === currentPatientId)) {
+                currentPatientId = firstPatientId;
+                patientConsent = false;
+                localStorage.removeItem('assistant_validated_patient_id');
+            }
+
+            if (currentPatientId) {
+                localStorage.setItem('assistant_selected_patient_id', currentPatientId);
             }
         }
 
@@ -1051,7 +1098,7 @@
                 tbody.innerHTML = `<tr><td colspan="5" style="text-align:center;padding:2rem;color:gray;">Aucun patient</td></tr>`;
                 return;
             }
-            console.log('[ASSISTANT] renderPatients - isReady:', isReady, 'currentPatientId:', currentPatientId, 'operationStartedPatientId:', operationStartedPatientId, 'connectedSurgeons:', connectedSurgeons);
+            console.log('[ASSISTANT] renderPatients - patientConsent:', patientConsent, 'currentPatientId:', currentPatientId, 'operationStartedPatientId:', operationStartedPatientId, 'connectedSurgeons:', connectedSurgeons);
             patients.forEach(p => {
                 const id = p.patient_id || p.id || 'ID-??';
                 const nom = p.nom || 'Inconnu';
@@ -1064,15 +1111,15 @@
                 const isOperationLocked = !!operationStartedPatientId && hasSurgeonInRoom;
                 const isInRoom = statut === 'en_cours' || hasSurgeonInRoom;
                 if (id === (patients[0]?.patient_id || patients[0]?.id)) {
-                    console.log('[ASSISTANT] Premier patient - hasSurgeonInRoom:', hasSurgeonInRoom, 'isOperationLocked:', isOperationLocked, 'disabled:', !isReady || isOperationLocked);
+                    console.log('[ASSISTANT] Premier patient - hasSurgeonInRoom:', hasSurgeonInRoom, 'isOperationLocked:', isOperationLocked, 'disabled:', isOperationLocked);
                 }
 
                 let prioBadge = priority === 'urgent' ? 'badge-urgent' : priority === 'high' ? 'badge-high' : 'badge-normal';
                 const actionHtml = `
-                    <label class="patient-radio${(!isReady || isOperationLocked) ? ' disabled' : ''}">
-                        <input type="radio" name="consentPatient" value="${id}" ${currentPatientId === id ? 'checked' : ''} ${(!isReady || isOperationLocked) ? 'disabled' : ''}
+                    <label class="patient-radio${isOperationLocked ? ' disabled' : ''}">
+                        <input type="radio" name="consentPatient" value="${id}" ${currentPatientId === id ? 'checked' : ''} ${isOperationLocked ? 'disabled' : ''}
                                onchange="selectConsentPatient('${id}')">
-                        <span>${operationStartedPatientId === id ? 'Intervention' : currentPatientId === id ? 'Sélectionné' : isInRoom ? 'En salle' : isOperationLocked ? 'Verrouillé' : isReady ? 'Choisir' : 'En attente'}</span>
+                        <span>${operationStartedPatientId === id ? 'Intervention' : currentPatientId === id ? 'Sélectionné' : isInRoom ? 'En salle' : isOperationLocked ? 'Verrouillé' : 'Choisir'}</span>
                     </label>`;
 
                 tbody.innerHTML += `
@@ -1087,13 +1134,7 @@
         }
 
         function selectConsentPatient(patientId) {
-            console.log('[ASSISTANT] selectConsentPatient appelé:', patientId, 'isReady:', isReady, 'operationStartedPatientId:', operationStartedPatientId, 'connectedSurgeons:', connectedSurgeons);
-
-            if (!isReady) {
-                console.log('[ASSISTANT] BLOQUÉ: isReady est false');
-                showToast('Passez d\'abord en mode PRÊT', 'error');
-                return;
-            }
+            console.log('[ASSISTANT] selectConsentPatient appelé:', patientId, 'patientConsent:', patientConsent, 'operationStartedPatientId:', operationStartedPatientId, 'connectedSurgeons:', connectedSurgeons);
 
             // Bloquer seulement si un chirurgien est réellement en salle pour ce patient
             const hasSurgeonInRoomForPatient = connectedSurgeons.some(s => s.inRoom && s.patientId === patientId);
@@ -1112,18 +1153,13 @@
 
             currentPatientId = patientId;
             patientConsent = false;
-
-            if (socket && previousPatientId) {
-                socket.emit('assistant:consent-revoked', {
-                    assistantId: currentUser?.id,
-                    patientId: previousPatientId
-                });
-            }
+            localStorage.setItem('assistant_selected_patient_id', patientId);
+            localStorage.removeItem('assistant_validated_patient_id');
 
             // Informer le serveur du nouveau patient sélectionné
             if (socket) {
                 const newPatient = patients.find(p => (p.patient_id || p.id) === patientId);
-                socket.emit('assistant:ready', {
+                socket.emit('assistant:selected', {
                     assistantId: currentUser?.id,
                     patientId: patientId,
                     patientData: newPatient ? {
@@ -1138,147 +1174,75 @@
             renderPatients();
         }
 
-        async function toggleReadyForPatient(patientId, dbId, currentlyReady) {
-            console.log('[ASSISTANT] toggleReadyForPatient:', patientId, 'currentlyReady:', currentlyReady, 'isReady avant:', isReady);
-
-            // Bloquer seulement si un chirurgien est réellement en salle pour ce patient
-            const hasSurgeonInRoom = connectedSurgeons.some(s => s.inRoom && s.patientId === patientId);
-            if (operationStartedPatientId && hasSurgeonInRoom) {
-                showToast('Intervention en cours: impossible de modifier le mode PRÊT', 'error');
+        async function validatePatient() {
+            // Vérifie qu'un patient est sélectionné
+            if (!currentPatientId) {
+                showToast('Veuillez d\'abord sélectionner un patient', 'error');
                 return;
             }
 
-            const newStatus = currentlyReady ? 'en_attente' : 'pret';
-            const idx = patients.findIndex(p => (p.patient_id || p.id) === patientId);
-            if (idx !== -1) patients[idx].statut = newStatus;
-            currentPatientId = currentlyReady ? null : patientId;
-            isReady = !currentlyReady;
-            console.log('[ASSISTANT] >>> isReady est maintenant:', isReady, 'currentPatientId:', currentPatientId);
-            if (isReady) {
-                console.log('[ASSISTANT] >>> MODE PRÊT ACTIVÉ - Les radio buttons devraient être cliquables maintenant !');
-            }
-            if (currentlyReady) {
-                patientConsent = false;
-            }
-            renderPatients();
-            updateReadyUI();
-
-            try {
-                const selectedPatient = patients.find(p => (p.patient_id || p.id) === patientId) || {};
-                await fetch(`${API_URL}/assistant/status`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': 'Bearer ' + sessionStorage.getItem('token')
-                    },
-                    body: JSON.stringify({ patient_db_id: dbId, statut: newStatus })
-                });
-                if (socket) {
-                    socket.emit(currentlyReady ? 'assistant:unready' : 'assistant:ready', {
-                        assistantId: currentUser?.id,
-                        patientId,
-                        patientData: {
-                            nom: selectedPatient.nom,
-                            prenom: selectedPatient.prenom,
-                            intervention: selectedPatient.pathologie || selectedPatient.intervention
-                        }
-                    });
-                    if (currentlyReady) {
-                        socket.emit('assistant:consent-revoked', {
-                            assistantId: currentUser?.id,
-                            patientId
-                        });
-                    }
-                }
-            } catch (e) {
-                showToast('Erreur mise à jour', 'error');
-            }
-        }
-
-        function togglePatientConsent() {
-            // Bloquer seulement si un chirurgien est réellement en salle pour le patient actuel
+            // Bloquer si intervention en cours
             const hasSurgeonInRoom = connectedSurgeons.some(s => s.inRoom && s.patientId === currentPatientId);
             if (operationStartedPatientId && hasSurgeonInRoom) {
-                showToast('Intervention en cours: consentement verrouillé jusqu\'à l\'archivage', 'error');
+                showToast('Intervention en cours: validation verrouillée', 'error');
                 return;
             }
 
-            if (!isReady || !currentPatientId) {
-                showToast('Passez d\'abord en mode PRÊT pour un patient', 'error');
-                return;
-            }
-
+            // Toggle validation
             patientConsent = !patientConsent;
             updateReadyUI();
 
+            if (patientConsent) {
+                localStorage.setItem('assistant_validated_patient_id', currentPatientId);
+            } else {
+                localStorage.removeItem('assistant_validated_patient_id');
+            }
+
+            // Émettre via socket
             if (socket) {
-                socket.emit(patientConsent ? 'assistant:consent' : 'assistant:consent-revoked', {
-                    assistantId: currentUser?.id,
-                    patientId: currentPatientId
+                socket.emit('assistant:validate', {
+                    assistantId: currentUser?.id || 'assistant-1',
+                    patientId: currentPatientId,
+                    validated: patientConsent
                 });
             }
-        }
 
-        function toggleGlobalReady() {
-            console.log('[ASSISTANT] toggleGlobalReady - isReady:', isReady, 'currentPatientId:', currentPatientId);
-
-            // Bloquer seulement si un chirurgien est réellement en salle pour le patient actuel
-            const hasSurgeonInRoom = connectedSurgeons.some(s => s.inRoom && s.patientId === currentPatientId);
-            if (operationStartedPatientId && hasSurgeonInRoom) {
-                showToast('Intervention en cours: impossible de modifier le mode PRÊT', 'error');
-                return;
-            }
-
-            if (isReady && currentPatientId) {
-                const p = patients.find(x => (x.patient_id || x.id) === currentPatientId);
-                if (p) toggleReadyForPatient(currentPatientId, p.db_id || p.id, true);
-            } else if (patients.length) {
-                const first = patients[0];
-                toggleReadyForPatient(first.patient_id || first.id, first.db_id || first.id, false);
-            } else showToast('Aucun patient', 'error');
+            showToast(patientConsent ? 'Patient validé ✓' : 'Validation annulée', patientConsent ? 'success' : 'info');
         }
 
         function updateReadyUI() {
-            const btn = document.getElementById('readyBtn');
-            const consentBtn = document.getElementById('consentBtn');
+            const validateBtn = document.getElementById('validateBtn');
             const sub = document.getElementById('actionSubtitle');
-            // Verrouiller dès qu'un chirurgien entre en salle (n'importe quel patient)
+
+            // Verrouiller dès qu'un chirurgien entre en salle
             const hasSurgeonInRoom = connectedSurgeons.some(s => s.inRoom);
             const locked = hasSurgeonInRoom;
-            if (isReady && currentPatientId) {
-                btn.innerHTML = locked
-                    ? '<i class="fas fa-lock"></i> Annuler le mode PRÊT'
-                    : '<i class="fas fa-times-circle"></i> Annuler le mode PRÊT';
-                btn.className = locked ? 'btn-ready' : 'btn-ready cancel';
-                btn.disabled = locked;
-                if (consentBtn) {
-                    consentBtn.disabled = locked;
-                    consentBtn.className = locked ? 'btn-ready' : (patientConsent ? 'btn-ready cancel' : 'btn-ready');
-                    consentBtn.innerHTML = locked
-                        ? '<i class="fas fa-lock"></i> Verrouillé - Chirurgien en salle'
-                        : patientConsent
-                            ? '<i class="fas fa-file-circle-check"></i> Patient consenti'
-                            : '<i class="fas fa-file-signature"></i> Consentir le patient';
+
+            // Activer le bouton seulement si un patient est sélectionné et pas verrouillé
+            const canValidate = currentPatientId && !locked;
+
+            if (validateBtn) {
+                validateBtn.disabled = !canValidate || locked;
+                validateBtn.className = patientConsent ? 'btn-ready cancel' : 'btn-ready';
+                validateBtn.innerHTML = patientConsent
+                    ? '<i class="fas fa-times-circle"></i> Annuler'
+                    : '<i class="fas fa-check-circle"></i> Valider';
+            }
+
+            if (sub) {
+                if (patientConsent && currentPatientId) {
+                    sub.textContent = locked
+                        ? `🔒 Patient ${currentPatientId} validé – Chirurgien en salle`
+                        : `✓ Patient ${currentPatientId} validé – En attente du chirurgien`;
+                } else if (currentPatientId) {
+                    sub.textContent = locked
+                        ? `🔒 Chirurgien en salle – Actions verrouillées`
+                        : `Patient ${currentPatientId} sélectionné – Cliquez sur Valider`;
+                } else {
+                    sub.textContent = locked
+                        ? `🔒 Chirurgien en salle – Attendre la sortie`
+                        : 'Sélectionnez un patient puis cliquez sur Valider';
                 }
-                sub.textContent = patientConsent
-                    ? (locked
-                        ? `🔒 Chirurgien en salle – Actions verrouillées jusqu'à la sortie`
-                        : `Patient ${currentPatientId} prêt et consenti – Accès chirurgien autorisé`)
-                    : (locked
-                        ? `🔒 Chirurgien en salle – Actions verrouillées jusqu'à la sortie`
-                        : `Patient ${currentPatientId} prêt – Sélectionnez un patient puis validez le consentement`);
-            } else {
-                btn.innerHTML = '<i class="fas fa-check-circle"></i> Passer en mode PRÊT';
-                btn.className = 'btn-ready';
-                btn.disabled = locked;
-                if (consentBtn) {
-                    consentBtn.disabled = true;
-                    consentBtn.className = 'btn-ready';
-                    consentBtn.innerHTML = '<i class="fas fa-file-signature"></i> Consentir le patient';
-                }
-                sub.textContent = locked
-                    ? '🔒 Chirurgien en salle – Attendre la sortie pour nouvelle sélection'
-                    : 'Confirmez votre disponibilité pour autoriser l\'accès chirurgien';
             }
         }
 
@@ -1304,6 +1268,7 @@
                 connectedSurgeons = data.surgeons;
             }
             renderSurgeons();
+            renderPatients();  // ← Mettre à jour la liste des patients (hasSurgeonInRoom)
         }
 
         function renderSurgeons() {

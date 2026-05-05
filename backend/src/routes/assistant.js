@@ -45,8 +45,6 @@ router.get('/patients', async (req, res) => {
       name: `${p.prenom} ${p.nom}`, // pour compatibilité frontend
       pathologie: p.pathologie,
       statut: p.statut,
-      consentementPatient: p.consentementPatient,
-      consentementAt: p.consentementAt,
       assistant_statut: p.assistantStatuses[0]?.statut || 'en_attente',
       pret: p.assistantStatuses[0]?.statut === 'pret',
       chirurgien: p.chirurgien ? `${p.chirurgien.prenom} ${p.chirurgien.nom}` : null,
@@ -96,9 +94,7 @@ router.post('/status', async (req, res) => {
         where: { id: patientId },
         data: {
           statut: statut === 'pret' ? 'pret' : 'en_attente',
-          assistantId: statut === 'pret' ? req.user.userId : null,
-          consentementPatient: false,
-          consentementAt: null
+          assistantId: statut === 'pret' ? req.user.userId : null
         }
       });
     });
@@ -148,9 +144,7 @@ router.post('/toggle-status', async (req, res) => {
         where: { id: patientId },
         data: {
           statut: newStatus === 'pret' ? 'pret' : 'en_attente',
-          assistantId: newStatus === 'pret' ? req.user.userId : null,
-          consentementPatient: false,
-          consentementAt: null
+          assistantId: newStatus === 'pret' ? req.user.userId : null
         }
       });
       

@@ -52,8 +52,6 @@ router.get('/', async (req, res) => {
         name: `${p.prenom} ${p.nom}`,
         pathologie: p.pathologie,
         statut: p.statut,
-        consentementPatient: p.consentementPatient,
-        consentementAt: p.consentementAt,
         assistantSignal: assistantStatus?.statut === 'pret' ? 'Prêt' : 'En attente',
         date_creation: p.createdAt
       };
@@ -120,8 +118,6 @@ router.get('/:patientId', async (req, res) => {
       name: `${patient.prenom} ${patient.nom}`,
       pathologie: patient.pathologie,
       statut: patient.statut,
-      consentementPatient: patient.consentementPatient,
-      consentementAt: patient.consentementAt,
       assistantSignal: assistantStatus?.statut === 'pret' ? 'Prêt' : 'En attente',
       chirurgien: patient.chirurgien ? `${patient.chirurgien.prenom} ${patient.chirurgien.nom}` : null
     });
@@ -166,9 +162,7 @@ router.post('/', async (req, res) => {
           prenom,
           pathologie: fullPathologie,
           chirurgienId: req.user.userId,
-          statut: 'en_attente',
-          consentementPatient: false,
-          consentementAt: null
+          statut: 'en_attente'
         }
       });
       

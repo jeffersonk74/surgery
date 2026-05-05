@@ -123,6 +123,50 @@
             margin-bottom: 15px;
         }
 
+            /* Notifications (toasts) */
+            .notifications-container {
+                position: fixed;
+                right: 20px;
+                top: 90px;
+                width: 320px;
+                max-width: calc(100% - 40px);
+                z-index: 1200;
+                display: flex;
+                flex-direction: column;
+                gap: 10px;
+                pointer-events: none;
+            }
+
+            .toast {
+                pointer-events: auto;
+                background: white;
+                border-radius: 8px;
+                padding: 10px 12px;
+                box-shadow: 0 6px 18px rgba(0,0,0,0.12);
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                gap: 10px;
+                border-left: 4px solid var(--indigo-mid);
+                font-size: 0.95rem;
+                color: var(--gray-700);
+            }
+
+            .toast-success { border-left-color: var(--emerald-600); }
+            .toast-warning { border-left-color: var(--amber-500); }
+            .toast-error   { border-left-color: var(--rose-500); }
+            .toast-info    { border-left-color: var(--indigo-mid); }
+
+            .toast-body { flex: 1; }
+            .toast-close {
+                background: transparent;
+                border: none;
+                font-size: 1.1rem;
+                line-height: 1;
+                color: var(--gray-500);
+                cursor: pointer;
+            }
+
         .user-avatar {
             width: 45px;
             height: 45px;
@@ -671,6 +715,9 @@
             </div>
 
             <div id="workflowHint" class="workflow-hint"></div>
+
+            <!-- Notifications globales -->
+            <div id="notificationsContainer" class="notifications-container" aria-live="polite"></div>
 
             <div class="card">
                 <div class="card-header">

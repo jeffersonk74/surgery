@@ -889,12 +889,12 @@ async function setupSockets(io) {
                 console.log('[SOCKET] Nettoyage session assistant (aucun chirurgien)');
                 await prisma.patient.updateMany({
                   where: { assistantId, statut: 'pret' },
-                  data: { statut: 'archive', assistantId: null, consentementPatient: false, consentementAt: null }
+                  data: { statut: 'archive', assistantId: null }
                 });
               } else {
                 await prisma.patient.updateMany({
                   where: { assistantId, statut: 'pret' },
-                  data: { statut: 'en_attente', assistantId: null, consentementPatient: false, consentementAt: null }
+                  data: { statut: 'en_attente', assistantId: null }
                 });
               }
             }
@@ -910,11 +910,11 @@ async function setupSockets(io) {
       }
     });
         
-    // Assistant signale PRÊT
-    socket.on('assistant:ready', (data) => {
+    // Assistant sélectionne un patient
+    socket.on('assistant:selected', (data) => {
       if (isOperationLocked()) {
         socket.emit('assistant:action-blocked', {
-          action: 'assistant:ready',
+          action: 'assistant:selected',
           patientId: systemState.operation.patientId,
           reason: 'operation-active',
           timestamp: new Date().toISOString()
@@ -923,11 +923,11 @@ async function setupSockets(io) {
       }
 
       const { assistantId, patientId, patientData } = data;
-      console.log(`[SOCKET] Assistant PRÊT: ${assistantId} pour Patient: ${patientId}`);
+      console.log(`[SOCKET] Assistant sélectionne le patient: ${assistantId} pour Patient: ${patientId}`);
       
-      systemState.assistant.ready = true;
+      systemState.assistant.ready = false;
       systemState.assistant.patientConsent = false;
-      systemState.assistant.patientConsentPatientId = null;
+      systemState.assistant.patientConsentPatientId = patientId;
       systemState.assistant.activePatient = {
         id: patientId,
         nom: patientData?.nom || '',
@@ -935,28 +935,85 @@ async function setupSockets(io) {
         intervention: patientData?.intervention || patientData?.pathologie || ''
       };
       systemState.assistant.lastSeen = Date.now();
+
+      io.emit('assistant:selected', {
+        assistantId,
+        patientId,
+        timestamp: new Date().toISOString()
+      });
       
-      // Mirroring immédiat vers le chirurgien avec OBJET UNIQUE HARMONISÉ
+      // Mirroring immédiat vers le chirurgien
       io.emit('assistant:status', {
         online: systemState.assistant.online,
         ready: systemState.assistant.ready,
-        patientConsent: systemState.assistant.patientConsent,
-        patientConsentPatientId: systemState.assistant.patientConsentPatientId,
         patientId: patientId,
         activePatient: systemState.assistant.activePatient,
         timestamp: new Date().toISOString()
       });
+    });
+
+    // Assistant valide ou annule la validation
+    socket.on('assistant:validate', async (data) => {
+      if (isOperationLocked()) {
+        socket.emit('assistant:action-blocked', {
+          action: 'assistant:validate',
+          patientId: systemState.operation.patientId,
+          reason: 'operation-active',
+          timestamp: new Date().toISOString()
+        });
+        return;
+      }
+
+      const patientId = data?.patientId || null;
+      const validated = !!data?.validated;
+      if (!patientId) return;
+
+      console.log(`[SOCKET] Assistant validation: ${data.assistantId} pour Patient: ${patientId} -> ${validated}`);
+      systemState.assistant.ready = validated;
+      systemState.assistant.patientConsent = validated;
+      systemState.assistant.patientConsentPatientId = patientId;
+      systemState.assistant.activePatient = {
+        ...(systemState.assistant.activePatient || {}),
+        id: patientId
+      };
+      systemState.assistant.lastSeen = Date.now();
+
+      const patientDb = await prisma.patient.findUnique({ where: { patientId } });
+      if (patientDb) {
+        await prisma.assistantStatus.upsert({
+          where: { patientId_assistantId: { patientId: patientDb.id, assistantId: data.assistantId || data.userId } },
+          create: {
+            patientId: patientDb.id,
+            assistantId: data.assistantId || data.userId,
+            statut: validated ? 'pret' : 'en_attente'
+          },
+          update: { statut: validated ? 'pret' : 'en_attente' }
+        });
+
+        await prisma.patient.update({
+          where: { id: patientDb.id },
+          data: { statut: validated ? 'pret' : 'en_attente' }
+        });
+      }
       
-      // Informer les chirurgiens de la reconnexion en cours
-      io.emit('assistant:reconnecting', {
-        assistantId: systemState.assistant.userId,
-        timestamp: new Date().toISOString(),
-        statusText: data.connected ? 'OPÉRATIONNEL' : 'ERREUR'
+      io.emit('assistant:validate', {
+        assistantId: data.assistantId,
+        patientId: data.patientId,
+        validated,
+        timestamp: new Date().toISOString()
+      });
+
+      io.emit('assistant:status', {
+        online: systemState.assistant.online,
+        ready: systemState.assistant.ready,
+        patientId,
+        activePatient: systemState.assistant.activePatient,
+        timestamp: new Date().toISOString()
       });
     });
-    
-    // Assistant annule PRÊT
-    socket.on('assistant:unready', (data) => {
+
+    // Assistant annule la validation
+    socket.on('assistant:unready', async (data) => {
       if (isOperationLocked()) {
         socket.emit('assistant:action-blocked', {
           action: 'assistant:unready',
@@ -967,111 +1024,31 @@ async function setupSockets(io) {
         return;
       }
 
-      console.log(`[SOCKET] Assistant annule PRÊT: ${data.assistantId}`);
-      systemState.assistant.ready = false;
-      systemState.assistant.patientConsent = false;
-      systemState.assistant.patientConsentPatientId = null;
-      
-      io.emit('assistant:unready', {
-        assistantId: data.assistantId,
-        patientId: data.patientId,
-        timestamp: new Date().toISOString()
-      });
-
-      io.emit('assistant:status', {
-        online: systemState.assistant.online,
-        ready: systemState.assistant.ready,
-        patientConsent: systemState.assistant.patientConsent,
-        patientConsentPatientId: systemState.assistant.patientConsentPatientId,
-        patientId: data.patientId,
-        timestamp: new Date().toISOString()
-      });
-    });
-
-    // Assistant signale le consentement patient
-    socket.on('assistant:consent', (data) => {
-      if (isOperationLocked()) {
-        socket.emit('assistant:action-blocked', {
-          action: 'assistant:consent',
-          patientId: systemState.operation.patientId,
-          reason: 'operation-active',
-          timestamp: new Date().toISOString()
-        });
-        return;
-      }
-
-      const patientId = data?.patientId || null;
-      if (!patientId) return;
-      systemState.assistant.patientConsent = true;
-      systemState.assistant.patientConsentPatientId = patientId;
-      systemState.assistant.lastSeen = Date.now();
-
-      prisma.patient.update({
-        where: { patientId },
-        data: {
-          consentementPatient: true,
-          consentementAt: new Date()
-        }
-      }).catch((err) => {
-        console.error('[SOCKET] Erreur persistance consentement patient:', err);
-      });
-
-      io.emit('assistant:status', {
-        online: systemState.assistant.online,
-        ready: systemState.assistant.ready,
-        patientConsent: systemState.assistant.patientConsent,
-        patientConsentPatientId: systemState.assistant.patientConsentPatientId,
-        patientId,
-        timestamp: new Date().toISOString()
-      });
-
-      io.emit('assistant:consent', {
-        assistantId: data?.assistantId,
-        patientId,
-        timestamp: new Date().toISOString()
-      });
-    });
-
-    // Assistant retire le consentement patient
-    socket.on('assistant:consent-revoked', (data) => {
-      if (isOperationLocked()) {
-        socket.emit('assistant:action-blocked', {
-          action: 'assistant:consent-revoked',
-          patientId: systemState.operation.patientId,
-          reason: 'operation-active',
-          timestamp: new Date().toISOString()
-        });
-        return;
-      }
-
       const patientId = data?.patientId || systemState.assistant.patientConsentPatientId;
       systemState.assistant.patientConsent = false;
-      systemState.assistant.patientConsentPatientId = null;
+      systemState.assistant.ready = false;
+      systemState.assistant.patientConsentPatientId = patientId || null;
       systemState.assistant.lastSeen = Date.now();
 
       if (patientId) {
-        prisma.patient.update({
-          where: { patientId },
-          data: {
-            consentementPatient: false,
-            consentementAt: null
-          }
-        }).catch((err) => {
-          console.error('[SOCKET] Erreur révocation consentement patient:', err);
-        });
+        const patientDb = await prisma.patient.findUnique({ where: { patientId } });
+        if (patientDb) {
+          await prisma.assistantStatus.upsert({
+            where: { patientId_assistantId: { patientId: patientDb.id, assistantId: data?.assistantId || data?.userId } },
+            create: { patientId: patientDb.id, assistantId: data?.assistantId || data?.userId, statut: 'en_attente' },
+            update: { statut: 'en_attente' }
+          });
+
+          await prisma.patient.update({
+            where: { id: patientDb.id },
+            data: { statut: 'en_attente' }
+          });
+        }
       }
 
       io.emit('assistant:status', {
         online: systemState.assistant.online,
         ready: systemState.assistant.ready,
-        patientConsent: systemState.assistant.patientConsent,
-        patientConsentPatientId: systemState.assistant.patientConsentPatientId,
-        patientId,
-        timestamp: new Date().toISOString()
-      });
-
-      io.emit('assistant:consent-revoked', {
-        assistantId: data?.assistantId,
         patientId,
         timestamp: new Date().toISOString()
       });

@@ -36,23 +36,68 @@ const NotificationQueue = {
     queue: [],
     maxVisible: 5,
     maxQueueSize: 20,
+  visible: [],
+  queueLimit: 20,
 
-    add(msg, type = 'info') {
-        if (this.queue.length >= this.maxQueueSize) {
-            this.queue.shift();
-        }
-        this.queue.push({ msg, type, id: Date.now() + Math.random() });
-        this.process();
-    },
-
-    process() {
-        // Simple console log for dashboard (pas d'UI toast complexe ici)
-        while (this.queue.length > 0) {
-            const item = this.queue.shift();
-            console.log(`[NOTIFICATION ${item.type}] ${item.msg}`);
-        }
+  add(msg, type = 'info') {
+    const item = { msg, type, id: 'n-' + Date.now() + '-' + Math.floor(Math.random() * 10000), ts: Date.now() };
+    // push to visible if space, otherwise queue
+    if (this.visible.length < this.maxVisible) {
+      this.visible.push(item);
+    } else {
+      this.queue.push(item);
+      if (this.queue.length > this.queueLimit) this.queue.shift();
     }
+    this.render();
+  },
+
+  dismiss(id) {
+    this.visible = this.visible.filter(i => i.id !== id);
+    if (this.queue.length > 0) {
+      const next = this.queue.shift();
+      this.visible.push(next);
+    }
+    this.render();
+  },
+
+  clear() {
+    this.visible = [];
+    this.queue = [];
+    this.render();
+  },
+
+  render() {
+    const container = document.getElementById('notificationsContainer');
+    if (!container) return;
+    container.innerHTML = '';
+    this.visible.forEach(item => {
+      const div = document.createElement('div');
+      div.className = `toast toast-${item.type}`;
+      div.setAttribute('data-id', item.id);
+      div.innerHTML = `
+        <div class="toast-body">${escapeHtml(item.msg)}</div>
+        <button class="toast-close" data-id="${item.id}">×</button>`;
+      container.appendChild(div);
+    });
+
+    // attach dismiss handlers
+    container.querySelectorAll('.toast-close').forEach(b => {
+      b.onclick = (ev) => {
+        const id = ev.target.dataset.id;
+        this.dismiss(id);
+      };
+    });
+  }
 };
+
+function escapeHtml(str) {
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
 
 // ---------------------------------------------------------------------------
 // Détection automatique du backend
@@ -201,8 +246,8 @@ function initSocket() {
   socket.on('assistant:status', (data) => {
     assistantOnline = data.online;
     assistantReady  = data.ready;
-    patientConsent = !!data.patientConsent;
-    patientConsentPatientId = data.patientConsentPatientId || null;
+    patientConsent = !!data.ready;
+    patientConsentPatientId = data.patientId || null;
     localStorage.setItem('assistant_ready', assistantReady);
     localStorage.setItem('patient_consent', patientConsent);
     updateMonitoringUI();
@@ -227,34 +272,58 @@ function initSocket() {
   });
 
   socket.on('assistant:ready', (data) => {
-    assistantReady = true;
+    assistantReady = false;
     patientConsent = false;
-    patientConsentPatientId = null;
+    patientConsentPatientId = data?.patientId || null;
     localStorage.setItem('assistant_ready', 'true');
-    if (data?.patientId) updatePatientRowInDOM(data.patientId, 'Prêt');
+    if (data?.patientId) updatePatientRowInDOM(data.patientId, 'En attente');
+    updateMonitoringUI();
+  });
+
+  socket.on('assistant:selected', (data) => {
+    assistantReady = false;
+    patientConsent = false;
+    patientConsentPatientId = data?.patientId || null;
+    localStorage.setItem('assistant_ready', 'false');
+    localStorage.setItem('patient_consent', 'false');
     updateMonitoringUI();
   });
 
   socket.on('assistant:unready', (data) => {
     assistantReady = false;
     patientConsent = false;
-    patientConsentPatientId = null;
+    patientConsentPatientId = data?.patientId || null;
     localStorage.setItem('assistant_ready', 'false');
     localStorage.setItem('patient_consent', 'false');
     if (data?.patientId) updatePatientRowInDOM(data.patientId, 'En attente');
     updateMonitoringUI();
   });
 
-  socket.on('assistant:consent', (data) => {
-    patientConsent = true;
+  socket.on('assistant:validate', (data) => {
+    assistantReady = !!data?.validated;
+    patientConsent = !!data?.validated;
     patientConsentPatientId = data?.patientId || null;
-    localStorage.setItem('patient_consent', 'true');
+    localStorage.setItem('assistant_ready', assistantReady);
+    localStorage.setItem('patient_consent', patientConsent);
     updateMonitoringUI();
+    // Global notification so surgeon always sees validation events
+    try {
+      const pid = normalizeId(data?.patientId || '');
+      const p = patientsData.find(p => patientKey(p) === pid);
+      const name = p ? (p.name || `${p.prenom || ''} ${p.nom || ''}`.trim()) : pid;
+      const action = data?.validated ? 'VALIDÉ' : 'ANNULÉ';
+      const msg = `Assistant: ${action} - ${name} (${pid})`;
+      NotificationQueue.add(msg, data?.validated ? 'success' : 'warning');
+    } catch (e) {
+      NotificationQueue.add('Assistant: validation reçue', 'info');
+    }
   });
 
-  socket.on('assistant:consent-revoked', () => {
+  socket.on('assistant:validation-cancelled', (data) => {
+    assistantReady = false;
     patientConsent = false;
-    patientConsentPatientId = null;
+    patientConsentPatientId = data?.patientId || null;
+    localStorage.setItem('assistant_ready', 'false');
     localStorage.setItem('patient_consent', 'false');
     updateMonitoringUI();
   });
@@ -443,7 +512,7 @@ function updateSocketStatusUI(state) {
 // Vérification système prêt
 // ---------------------------------------------------------------------------
 function isSystemReady() {
-  return assistantReady && patientConsent;
+  return assistantReady;
 }
 
 // ---------------------------------------------------------------------------
@@ -491,8 +560,8 @@ function updateMonitoringUI() {
       assistText.textContent = 'OFFLINE';
       assistText.style.color = 'var(--rose-500)';
     } else if (assistantReady) {
-      assistText.textContent = patientConsent ? 'PRÊT + CONSENTEMENT' : 'PRÊT (SANS CONSENTEMENT)';
-      assistText.style.color = patientConsent ? 'var(--emerald-600)' : 'var(--amber-500)';
+      assistText.textContent = 'VALIDÉ';
+      assistText.style.color = 'var(--emerald-600)';
     } else {
       assistText.textContent = 'EN ATTENTE';
       assistText.style.color = 'var(--amber-500)';
@@ -527,15 +596,22 @@ function updateWorkflowHint() {
   if (activeOperationPatientId) {
     message = '';
   } else if (!assistantOnline) {
-    message = '<strong>DÉMARRER indisponible.</strong> L\'assistant médical doit être reconnecté avant de valider un nouveau patient.';
+    message = '<strong>ENTRER EN SALLE indisponible.</strong> L\'assistant médical doit être connecté.';
   } else if (!assistantReady) {
-    message = '<strong>DÉMARRER indisponible.</strong> Après une opération terminée, l\'assistant doit sélectionner un nouveau patient puis repasser en mode PRÊT.';
-  } else if (!patientConsent) {
-    message = '<strong>DÉMARRER indisponible.</strong> Le patient sélectionné doit encore être marqué comme consenti côté assistant.';
+    message = '<strong>ENTRER EN SALLE indisponible.</strong> L\'assistant doit sélectionner un patient et cliquer sur <strong>Valider</strong>.';
   }
 
   hint.innerHTML = message;
   hint.style.display = message ? 'block' : 'none';
+}
+
+// Helpers to normalize patient identifiers
+function normalizeId(id) {
+  return id === null || id === undefined ? '' : String(id);
+}
+
+function patientKey(patient) {
+  return normalizeId(patient?.id ?? patient?.patient_id ?? '');
 }
 
 // ---------------------------------------------------------------------------
@@ -553,7 +629,8 @@ async function loadPatients() {
 
     patientsData = await response.json();
     filteredPatients = [...patientsData];
-    activeOperationPatientId = patientsData.find(p => p.statut === 'en_cours')?.id || patientsData.find(p => p.statut === 'en_cours')?.patient_id || null;
+    const op = patientsData.find(p => p.statut === 'en_cours');
+    activeOperationPatientId = op ? patientKey(op) : null;
     renderPatients();
     updateStats();
   } catch (err) {
@@ -601,13 +678,13 @@ function renderPatients(data = filteredPatients) {
   }
 
   data.forEach(patient => {
-    const id           = patient.id || patient.patient_id || 'ID-?';
+    const id           = patientKey(patient) || 'ID-?';
     const name         = patient.name || `${patient.prenom || ''} ${patient.nom || ''}`.trim() || 'Inconnu';
     const pathologie   = patient.pathologie || patient.intervention || 'N/A';
     const isReady      = patient.assistantSignal === 'Prêt' || patient.statut === 'pret';
     const isOperating  = patient.statut === 'en_cours';
     const lockActive    = !!activeOperationPatientId && !isOperating;
-    const hasConsent   = patientConsent && (!patientConsentPatientId || patientConsentPatientId === id);
+    const hasConsent   = assistantReady && (!patientConsentPatientId || patientConsentPatientId === id);
     const systemReady  = isSystemReady();
     const canEnter     = isOperating || (!lockActive && isReady && hasConsent && systemReady);
 
@@ -625,7 +702,7 @@ function renderPatients(data = filteredPatients) {
       statusBadge = 'PRÊT';
       statusClass = 'status-ready';
     } else if (isReady && !hasConsent) {
-      statusBadge = 'CONSENTEMENT MANQUANT';
+      statusBadge = 'VALIDATION MANQUANTE';
       statusClass = 'status-waiting';
     } else if (isReady && !systemReady) {
       statusBadge = 'PRÊT EN ATTENTE';
@@ -638,7 +715,7 @@ function renderPatients(data = filteredPatients) {
       statusClass = 'status-waiting';
     }
 
-    const btnText      = isOperating ? 'REPRENDRE' : 'DÉMARRER';
+    const btnText      = 'ENTRER EN SALLE';
     const disabledAttr = canEnter ? '' : 'disabled';
     const btnClass     = canEnter ? 'btn-enter active' : 'btn-enter btn-disabled';
 
@@ -649,21 +726,31 @@ function renderPatients(data = filteredPatients) {
       <td>${pathologie}</td>
       <td><span class="status-badge ${statusClass}">${statusBadge}</span></td>
       <td>
-        <button class="${btnClass}" data-patient-id="${id}"
-                onclick="enterSalle('${id}', '${name.replace(/'/g, "\\'")}')"
-                ${disabledAttr}>
+        <button class="${btnClass}" data-patient-id="${id}" data-patient-name="${name.replace(/'/g, "\\'")}" ${disabledAttr}>
           ${btnText}
         </button>
       </td>`;
     tbody.appendChild(row);
   });
+
+  // Event delegation for Enter buttons (attach once)
+  if (!tbody.__enterDelegateAttached) {
+    tbody.addEventListener('click', (ev) => {
+      const btn = ev.target.closest && ev.target.closest('button.btn-enter');
+      if (!btn) return;
+      const pid  = btn.dataset.patientId;
+      const name = btn.dataset.patientName || '';
+      enterSalle(pid, name);
+    });
+    tbody.__enterDelegateAttached = true;
+  }
 }
 
 // ---------------------------------------------------------------------------
 // Mise à jour d'une ligne sans rechargement complet
 // ---------------------------------------------------------------------------
 function updatePatientRowInDOM(patientId, newStatus) {
-  const patient = patientsData.find(p => (p.id || p.patient_id) === patientId);
+  const patient = patientsData.find(p => patientKey(p) === normalizeId(patientId));
   if (patient) {
     patient.assistantSignal = newStatus;
     if (newStatus === 'Prêt') {
@@ -741,9 +828,9 @@ function navigateTo(section) {
 // Entrée en salle d'opération
 // ---------------------------------------------------------------------------
 function enterSalle(patientId, patientName) {
-  const patient = patientsData.find(p => (p.id || p.patient_id) === patientId);
+  const patient = patientsData.find(p => patientKey(p) === normalizeId(patientId));
   const isReady = patient && (patient.assistantSignal === 'Prêt' || patient.statut === 'pret' || patient.statut === 'en_cours');
-  const hasConsent = patientConsent && (!patientConsentPatientId || patientConsentPatientId === patientId);
+  const hasConsent = assistantReady && (!patientConsentPatientId || patientConsentPatientId === normalizeId(patientId));
 
   if (activeOperationPatientId && activeOperationPatientId !== patientId) {
     alert('🔒 ACCÈS VERROUILLÉ\n\nUne salle est déjà active. Attendez que le chirurgien sorte de la salle en cours.');
@@ -756,12 +843,12 @@ function enterSalle(patientId, patientName) {
   }
 
   if (!hasConsent) {
-    alert('🔒 ACCÈS REFUSÉ\n\nLe consentement patient n\'a pas encore été validé par l\'assistant.');
+    alert('🔒 ACCÈS REFUSÉ\n\nLa validation du patient n\'a pas encore été confirmée par l\'assistant.');
     return;
   }
 
   sessionStorage.setItem('currentPatient', JSON.stringify({ id: patientId, name: patientName }));
-  window.location.href = `index.html?patientId=${patientId}`;
+  window.location.href = `index.html?patientId=${encodeURIComponent(normalizeId(patientId))}`;
 }
 
 // ---------------------------------------------------------------------------
